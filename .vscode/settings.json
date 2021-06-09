@@ -1,0 +1,11 @@
+{
+    "python.testing.pytestArgs": [
+        "tests",
+        "-o", "junit_family=xunit1",
+        "-rP"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.nosetestsEnabled": false,
+    "python.testing.pytestEnabled": true,
+    // "python.pythonPath": "C:\\Users\\linbai\\anaconda3\\python.exe"
+}
