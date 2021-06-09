@@ -128,8 +128,8 @@ def gen_sents(text):
 # * Each valid sentence is an observation for machine learning observation
 # todo: Need to add labels to each sentence mannually
 
-# * For EDA: get to know the named entities, all upper words, and out-of-vector words in the corpus
-def word_nlp_feature(sents):
+# * Named Entity Analysis
+def word_entity_feature(sents):
     """Generate table to present named entities, all upper words, and out-of-vector words
     in the corpus.
 
@@ -157,7 +157,29 @@ def word_nlp_feature(sents):
 
     return pd.DataFrame.from_dict(features, orient='index').transpose()
 
-# * For EDA: get to know the most frequent words in the corpus
+# * tokenizer that replace certain named entities with the entity label
+def tokenizer_ent(text):
+    doc = nlp(text)
+    tokens = []
+    for token in doc:
+        if token.ent_type_ in ('ORG', 'DATE', 'TIME', 'MONEY', 'GPE', 'LOC'):
+            if token.ent_iob_ == 'B':
+                tokens.append(token.ent_type_)
+        elif token.ent_iob_ == 'O' and token.pos_ != 'PUNCT':
+            if token.is_oov:
+                continue
+            if token.like_url:
+                tokens.append('URL')
+            elif token.like_email:
+                tokens.append('EMAIL')
+            elif token.like_num:
+                tokens.append('NUM')
+            elif token.is_alpha and len(token) > 1:
+                tokens.append(token.text)
+
+    return tokens
+
+# * Frequency Analysis
 def get_top_n_words(sents, n=100, **kwargs):
     """Generate list of the n most frequent words in the corpus. Any transformation
     of the words are applied through tokenizer or other parameters of CounterVectorizer.
@@ -177,3 +199,13 @@ def get_top_n_words(sents, n=100, **kwargs):
     word_freq.sort(key=lambda x: x[1], reverse=True)
     return list(zip(*word_freq[:n]))
 
+# * Length Analysis
+def length_feature(sents, tokenizer):
+    df = pd.DataFrame({'sents': sents})
+    tokens = df['sents'].map(tokenizer)
+    df['word_count'] = tokens.map(len)
+    df['char_count'] = tokens.map(lambda x: sum(len(token) for token in x))
+    df['avg_word_length'] = df['char_count'] / df['word_count']
+    df['unique_count'] = tokens.map(lambda x: len(set(x)))
+    df['unique_vs_words'] = df['unique_count'] / df['word_count']
+    return df
