@@ -130,7 +130,7 @@ def gen_sents(text):
 # todo: Need to add labels to each sentence mannually
 
 # * Named Entity Analysis
-def word_entity_feature(sents):
+def find_word_entity(sents):
     """Generate table to present named entities, all upper words, and out-of-vector words
     in the corpus.
 
@@ -186,6 +186,23 @@ def tokenizer_ent(text):
                 tokens.append(token.text)
 
     return tokens
+
+def entity_feature(sents):
+    """Count number of specified named entities for each sentence.
+
+    Args:
+        sents (List of string): List of sentences
+
+    Returns:
+        DataFrame: DataFrame containing the original sentences and the number of specified named entities
+    """
+    vocab = ['ORG', 'DATE', 'TIME', 'MONEY', 'GPE', 'LOC', 'URL', 'EMAIL', 'NUM']
+    vectorizer = CountVectorizer(lowercase=False, tokenizer=tokenizer_ent, vocabulary=vocab)
+    bag_of_words = vectorizer.fit_transform(sents)
+    df = pd.DataFrame(bag_of_words.toarray(), columns=vectorizer.get_feature_names())
+    df['sents'] = sents
+    return df
+
 
 # * Frequency Analysis
 def get_top_n_words(sents, n=100, **kwargs):
@@ -260,3 +277,26 @@ def sentiment_feature(sents):
     df['subjectivity'] = blobs.map(lambda t: t.sentiment.subjectivity)
     return df
 
+# * Compare features between classification groups
+# Compare n most frequency words
+def compare_top_n_words(df, sents_col, keys, n=100, **kwargs):
+    corpus_all = df[sents_col]
+    top_100_allwords, top_100_allfreq = get_top_n_words(corpus_all, n=100, **kwargs)
+
+    top_100 = pd.DataFrame({'words': top_100_allwords, 'avg_all': top_100_allfreq})
+
+    for key in keys:
+        corpus_pos = df.loc[df[key]==1, [sents_col]].squeeze()
+        corpus_neg = df.loc[df[key]==0, [sents_col]].squeeze()
+
+        top_100_pos_words, top_100_pos_freq = get_top_n_words(corpus_pos, n=100, **kwargs)
+        top_100_neg_words, top_100_neg_freq = get_top_n_words(corpus_neg, n=100, **kwargs)
+        top_100_pos = pd.DataFrame({'words': top_100_pos_words, f'{key}_pos': top_100_pos_freq})
+        top_100_neg = pd.DataFrame({'words': top_100_neg_words, f'{key}_neg': top_100_neg_freq})
+        
+        top_100 = top_100.merge(top_100_pos, how='outer', on='words')
+        top_100 = top_100.merge(top_100_neg, how='outer', on='words')
+        
+    return top_100
+
+            

@@ -41,8 +41,8 @@ def sents_list():
     return sents
     
 
-def test_entity_feature(sents_list):
-    df = nlp_feat.word_entity_feature(sents_list)
+def test_find_entity(sents_list):
+    df = nlp_feat.find_word_entity(sents_list)
     print(df.shape)
     print(df.columns)
     assert df.shape[0] > 1
@@ -57,6 +57,11 @@ def test_tokenizer_ent(sents_list):
     print(tokens_6)
     assert 'URL' in tokens_6
 
+def test_entity_feature(sents_list):
+    df = nlp_feat.entity_feature(sents_list)
+    print(df.iloc[0])
+    assert df.shape[0] == len(sents_list)
+    assert df.shape[1] == 10
 
 def test_get_top_words(sents_list):
     top_words, words_freq = nlp_feat.get_top_n_words(sents_list, n=5)
