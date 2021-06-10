@@ -1,4 +1,5 @@
 import pandas as pd
+from textblob import TextBlob
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from spacy.language import Language
 import spacy
@@ -159,6 +160,15 @@ def word_entity_feature(sents):
 
 # * tokenizer that replace certain named entities with the entity label
 def tokenizer_ent(text):
+    """tokenizer that transform text to a list of tokens, can be used with CountVectorizer.
+    The tokenizer replaces certain types of named entity with the entity label.
+
+    Args:
+        text (string): original text to tokenize
+
+    Returns:
+        List of string: List of resulting tokens
+    """
     doc = nlp(text)
     tokens = []
     for token in doc:
@@ -166,15 +176,13 @@ def tokenizer_ent(text):
             if token.ent_iob_ == 'B':
                 tokens.append(token.ent_type_)
         elif token.ent_iob_ == 'O' and token.pos_ != 'PUNCT':
-            if token.is_oov:
-                continue
             if token.like_url:
                 tokens.append('URL')
             elif token.like_email:
                 tokens.append('EMAIL')
             elif token.like_num:
                 tokens.append('NUM')
-            elif token.is_alpha and len(token) > 1:
+            elif token.is_alpha and len(token) > 1 and not token.is_oov:
                 tokens.append(token.text)
 
     return tokens
@@ -201,6 +209,15 @@ def get_top_n_words(sents, n=100, **kwargs):
 
 # * Length Analysis
 def length_feature(sents, tokenizer):
+    """Generate length features for each sentence
+
+    Args:
+        sents (List of string): List of sentences
+        tokenizer (callable): a tokenizer function that transforms text to list of tokens 
+
+    Returns:
+        DataFrame: DataFrame containing original sentences and the length features
+    """
     df = pd.DataFrame({'sents': sents})
     tokens = df['sents'].map(tokenizer)
     df['word_count'] = tokens.map(len)
@@ -209,3 +226,37 @@ def length_feature(sents, tokenizer):
     df['unique_count'] = tokens.map(lambda x: len(set(x)))
     df['unique_vs_words'] = df['unique_count'] / df['word_count']
     return df
+
+# * Linguistic Analysis
+def count_pos_tag(doc, tag, pos):
+    if tag:
+        return sum(token.tag_ == tag for token in doc)
+    if pos:
+        return sum(token.pos_ == pos for token in doc)
+
+
+def pos_feature(sents):
+    df = pd.DataFrame({'sents': sents})
+    tokens = df['sents'].map(nlp)
+    # number of tokens that are not punctuation
+    df['token_count'] = tokens.map(lambda t: sum(token.pos_!='PUNCT' for token in t))
+    # percentage of verb, past tense
+    df['VBD_perc'] = tokens.apply(count_pos_tag, args=('VBD', False,)) / df['token_count']
+    # percentage of verb, perfect tense
+    df['VBN_perc'] = tokens.apply(count_pos_tag, args=('VBN', False)) / df['token_count']
+    # percentage of verb, modal auxiliary
+    df['MD_perc'] = tokens.apply(count_pos_tag, args=('MD', False)) / df['token_count']
+    # percentage of verb
+    df['VERB_perc'] = tokens.apply(count_pos_tag, args=(False, 'VERB')) / df['token_count']
+    # percentage of noun
+    df['NOUN_perc'] = tokens.apply(count_pos_tag, args=(False, 'NOUN')) / df['token_count']
+    return df
+
+# * Sentiment Analysis
+def sentiment_feature(sents):
+    df = pd.DataFrame({'sents': sents})
+    blobs = df['sents'].map(TextBlob)
+    df['polarity'] = blobs.map(lambda t: t.sentiment.polarity)
+    df['subjectivity'] = blobs.map(lambda t: t.sentiment.subjectivity)
+    return df
+
