@@ -132,7 +132,7 @@ def gen_sents(text):
 # * Named Entity Analysis
 def find_word_entity(sents):
     """Generate table to present named entities, all upper words, and out-of-vector words
-    in the corpus.
+    in the corpus, using spaCy.
 
     Args:
         sents (List of string): the corpus as a list of sentences
@@ -161,7 +161,7 @@ def find_word_entity(sents):
 # * tokenizer that replace certain named entities with the entity label
 def tokenizer_ent(text):
     """tokenizer that transform text to a list of tokens, can be used with CountVectorizer.
-    The tokenizer replaces certain types of named entity with the entity label.
+    The tokenizer replaces certain types of named entity with the entity label from spaCy.
 
     Args:
         text (string): original text to tokenize
@@ -188,7 +188,7 @@ def tokenizer_ent(text):
     return tokens
 
 def entity_feature(sents):
-    """Count number of specified named entities for each sentence.
+    """Count number of specified named entities for each sentence, using spaCy
 
     Args:
         sents (List of string): List of sentences
@@ -246,6 +246,16 @@ def length_feature(sents, tokenizer=tokenizer_ent):
 
 # * Linguistic Analysis
 def count_pos_tag(doc, tag, pos):
+    """Count number of certain tag/pos in a spaCy Doc.
+
+    Args:
+        doc (spaCy.Doc): text transformed to doc
+        tag (string): name of a specific detailed part-of-speech tag
+        pos (string): name of a simple UPOS part-of-speech tag
+
+    Returns:
+        int: number of the certain tag/pos
+    """
     if tag:
         return sum(token.tag_ == tag for token in doc)
     if pos:
@@ -253,6 +263,14 @@ def count_pos_tag(doc, tag, pos):
 
 
 def pos_feature(sents):
+    """Generate part-of-speech features for each sentence, using spaCy
+
+    Args:
+        sents (List of string): List of sentences
+
+    Returns:
+        DataFrame: DataFrame containing original sentences and part-of-speech features
+    """
     df = pd.DataFrame({'sents': sents})
     tokens = df['sents'].map(nlp)
     # number of tokens that are not punctuation
@@ -271,6 +289,14 @@ def pos_feature(sents):
 
 # * Sentiment Analysis
 def sentiment_feature(sents):
+    """Generate sentiment features for each sentence, using TextBlob package.
+
+    Args:
+        sents (List of string): List of sentences
+
+    Returns:
+        DataFrame: DataFrame containing original sentences and sentiment features
+    """
     df = pd.DataFrame({'sents': sents})
     blobs = df['sents'].map(TextBlob)
     df['polarity'] = blobs.map(lambda t: t.sentiment.polarity)
@@ -280,6 +306,18 @@ def sentiment_feature(sents):
 # * Compare features between classification groups
 # Compare n most frequency words
 def compare_top_n_words(df, sents_col, keys, n=100, **kwargs):
+    """Compare frequencies of the top n words between groups set by keys
+
+    Args:
+        df (DataFrame): DataFrame containing sentences and labels (keys) for each sentence
+        sents_col (string): column name for the sentences
+        keys (List of string): List of column names for the labels (keys)
+        n (int, optional): number of the most frequent words for each group. Defaults to 100.
+
+    Returns:
+        DataFrame: Each row is a top n word, and each column represents the frequency of
+        a specified group.
+    """
     corpus_all = df[sents_col]
     top_100_allwords, top_100_allfreq = get_top_n_words(corpus_all, n=100, **kwargs)
 
