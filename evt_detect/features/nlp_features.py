@@ -225,7 +225,7 @@ def get_top_n_words(sents, n=100, **kwargs):
     return list(zip(*word_freq[:n]))
 
 # * Length Analysis
-def length_feature(sents, tokenizer):
+def length_feature(sents, tokenizer=tokenizer_ent):
     """Generate length features for each sentence
 
     Args:
