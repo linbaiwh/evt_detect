@@ -2,16 +2,14 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-def compare_features(data, sents_col, keys, feature_func):
-    df = feature_func(data[sents_col])
+def compare_features(data, sents_col, keys, feature_func, **kwargs):
+    df = feature_func(data[sents_col], **kwargs)
     features = df.select_dtypes(exclude=object).columns
     keys_col = data[keys]
     df = df.join(keys_col)
 
     num_feat = len(features)
     num_keys = len(keys)
-    if num_keys == 1:
-        keys = [keys]
 
     fig = plt.figure(figsize=(5 * num_keys, 4 * num_feat))
     subfigs = fig.subfigures(num_feat, 1, squeeze=False, wspace=0.05, hspace=0.05)
