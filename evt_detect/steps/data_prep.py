@@ -5,7 +5,7 @@ from ..utils.file_io import to_file_df
 
 #%%
 # folder environment setup
-topfolder = Path(r'F:\SEC filing')
+topfolder = Path(r'E:\SEC filing')
 tag = 'breach'
 data_folder = Path(__file__).resolve().parents[2] / 'data'
 input_folder = data_folder / 'input'
@@ -25,7 +25,7 @@ form_types = PR_types
 form_label = 'PR'
 
 #%%
-sents_save = label_folder / f'{tag}_{form_label})_sents.xlsx'
+sents_save = label_folder / f'{tag}_{form_label}_sents.xlsx'
 csv_ins, csv_outs = prep.find_formtypes(form_types, topfolder)
 
 #%%
