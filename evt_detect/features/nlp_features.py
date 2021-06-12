@@ -50,8 +50,8 @@ def EDGAR_sentencizer(doc):
         if token.nbor(-1).text in (";", ":") and token.text in ("(", "and", "or"):
             if token.text in ("and", "or"):
                 i += 1
-            if i + 2 < len_doc and doc[i+2].text == ")":
-                if 1 <= len(doc[i+1]) <= 3 or set(list(doc[i+1].lower_)) <= set('i','v','x'):
+            if i + 3 < len_doc and doc[i+2].text == ")":
+                if 1 <= len(doc[i+1]) <= 3 or set(doc[i+1].lower_) <= set('ivx'):
                     doc[i].is_sent_start = True
                     doc[i+1].is_sent_start = False
                     doc[i+2].is_sent_start = False

@@ -2,15 +2,17 @@ import logging
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from file_io import read_file_df, to_file_df, merge_csv
-from ..features.nlp_features import gen_sents
+from evt_detect.utils.file_io import read_file_df, to_file_df, merge_csv
+from evt_detect.features.nlp_features import gen_sents
 
 
 logger = logging.getLogger(__name__)
 
 # * randomly select at most nmax files per year per file type
 def shuffle_files(csv_in, csv_out, ciks=None, nmax=160, frac=0.5, textcol='filtered_text'):
-    df = read_file_df(csv_in)
+    df = read_file_df(csv_in, low_memory=False)
+    if df is None:
+        return 0, 0
     df['cik'] = df['cik'].apply(str)
     if ciks is not None:
         df = df.loc[df['cik'].isin(ciks)]
@@ -66,7 +68,7 @@ def parags_shuffled(cikfolder, csv_ins, csv_outs, nmax=160, frac=0.5):
     sns.histplot(x=uniques, ax=ax1)
     sns.histplot(x=select_pers, ax=ax2)
 
-    df = merge_csv(csv_outs, outcsv=False)
+    df = merge_csv(csv_outs, outcsv=False, readkwargs={'low_memory': False})
 
     duplicate_firms = df[['cik']].duplicated().sum()
     logger.info(f'{duplicate_firms} duplicated firms')
@@ -74,8 +76,8 @@ def parags_shuffled(cikfolder, csv_ins, csv_outs, nmax=160, frac=0.5):
     return df
 
 # * Randomly select nsents sentences for each cik - text, resulting the file for mannual labeling
-def sents_shuffled(df, nsents=2, textcol='filtered_text'):
-    df.set_index('cik',inplace=True)
+def sents_shuffled(df_p, nsents=2, textcol='filtered_text'):
+    df = df_p.set_index('cik')
     df['sents'] = df[textcol].map(gen_sents)
     
     # visualize number of sentences for each observation
@@ -86,7 +88,8 @@ def sents_shuffled(df, nsents=2, textcol='filtered_text'):
     sents = sents.dropna(subset=['sents']).drop_duplicates()
 
     shuffled = sents.sample(frac=1, random_state=42).groupby('cik').head(nsents)
-    
+    shuffled = shuffled.sort_values(by='cik')
+
     # add classification outcome variables for mannual fill
     shuffled = shuffled.assign(Incident='', Immaterial='', Cost='', Litigation='', Management='')
 

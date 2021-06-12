@@ -11,12 +11,16 @@ def read_file_df(csv_in,**readkwargs):
                 return df
             except UnicodeDecodeError:
                 continue
+            except pd.errors.EmptyDataError:
+                logger.exception('CSV is empty')
+                return None
     elif csv_in.suffix == '.xlsx':
         try:
             df = pd.read_excel(csv_in,**readkwargs)
             return df
         except UnicodeDecodeError:
             logger.exception('cannot read excel')
+            return None
 
 
 def to_file_df(df, csv_out,**savekwargs):
@@ -35,8 +39,8 @@ def to_file_df(df, csv_out,**savekwargs):
                 continue
     return csv_out
 
-def merge_csv(csv_list, outcsv=False, readkwargs=None, mergekwargs={'ignore_index':True}):
-    dfs = [read_file_df(csv_in, **readkwargs) for csv_in in csv_list]
+def merge_csv(csv_list, outcsv=False, readkwargs={}, mergekwargs={'ignore_index':True}):
+    dfs = [read_file_df(csv_in, **readkwargs) for csv_in in csv_list if csv_in.exists()]
     merged_df = pd.concat(dfs, **mergekwargs)
     
     if outcsv:
