@@ -1,8 +1,17 @@
 #%%
+import sys
+import os
 from pathlib import Path
-from ..utils.file_io import read_file_df, to_file_df
-from ..utils.visualize import compare_features
-from ..features import nlp_features as nlp_feat
+sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+import importlib
+
+#%%
+import evt_detect
+importlib.reload(evt_detect)
+
+from evt_detect.utils.file_io import read_file_df, to_file_df
+from evt_detect.utils.visualize import compare_features
+from evt_detect.features import nlp_features as nlp_feat
 
 #%%
 data_folder = Path(__file__).resolve().parents[2] / 'data'
@@ -19,9 +28,10 @@ form_label = 'PR'
 keys = ['Incident', 'Immaterial']
 
 #%%
-sents_labeled = label_folder / f'{tag}_{form_label}_sents_labeled.xlsx'
+sents_notlabeled = label_folder / f'{tag}_{form_label}_sents.xlsx'
+sents_labeled = label_folder / f'{tag}_{form_label}_sents_labeled_1.xlsx'
 sents_col = 'sents'
-data = read_file_df(sents_labeled)
+data = read_file_df(sents_notlabeled)
 
 
 #%%
