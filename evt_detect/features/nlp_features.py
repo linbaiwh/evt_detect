@@ -1,10 +1,13 @@
 import pandas as pd
+import re
+from pathlib import Path
 from textblob import TextBlob
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from spacy.language import Language
 import spacy
 
 nlp = spacy.load('en_core_web_md')
+doc_folder = Path(__file__).resolve().parents[2] / 'docs'
 
 @Language.component("EDGAR_sentencizer")
 def EDGAR_sentencizer(doc):
@@ -74,6 +77,8 @@ def EDGAR_sentencizer(doc):
     return doc
 
 nlp.add_pipe("EDGAR_sentencizer", before="parser")
+nlp.add_pipe("entity_ruler", before="ner").from_disk(doc_folder / "ent_pattern.jsonl")
+nlp.add_pipe("merge_entities")
 
 
 def valid_sent(doc):
@@ -104,6 +109,7 @@ def normalize_text(text):
         string: text after removing excessive characters
     """
     text = text.replace('\n',' ')
+    text = text.replace(r'\99',' ')
     text = ' '.join(text.split())
     return text
 
@@ -152,11 +158,24 @@ def find_word_entity(sents):
                     features['is_upper'] = features.get('is_upper', []) + [token.text]
                 if token.is_oov:
                     features['is_oov'] = features.get('is_oov', []) + [token.text]
+            elif token.ent_iob_ == 'B' and token.ent_type_ == 'ORG' and not match_not_ent(token):
+                features['modified_ORG'] = features.get('modified_ORG', []) + [token.text]
     
     for feature in features:
         features[feature] = sorted(list(set(features[feature])))
 
     return pd.DataFrame.from_dict(features, orient='index').transpose()
+
+# modify the named entities (remove incorrect named entities)
+def match_not_ent(token):
+    if token.ent_type_ == 'ORG':
+        neg_org = ["agreement", "breach", "requirement", "change", "report", "stock", "contract", "shareholder", "policy", 
+        "statement", "rate", "notice", "diluted", "government", "document", "commitment", "offer", "award", "termination", "pin",
+        " law", " act", " regulation", " time", "market value", "regulatory"]
+        for norg in neg_org:
+            if norg in token.lower_:
+                return True
+    return False
 
 # * tokenizer that replace certain named entities with the entity label
 def tokenizer_ent(text):
@@ -172,9 +191,12 @@ def tokenizer_ent(text):
     doc = nlp(text)
     tokens = []
     for token in doc:
-        if token.ent_type_ in ('ORG', 'DATE', 'TIME', 'MONEY', 'GPE', 'LOC'):
-            if token.ent_iob_ == 'B':
-                tokens.append(token.ent_type_)
+        if token.ent_iob_ == 'B' and token.ent_type_ in ('DATE', 'TIME', 'MONEY', 'GPE', 'LOC', 'TICKER', 'PERSON', 'LAW', 'PERCENT'):
+            tokens.append(token.ent_type_)
+        elif token.ent_iob_ == 'B' and token.ent_type_ == 'ORG' and not match_not_ent(token):
+            tokens.append('ORG')
+        elif token.ent_iob_ == 'B':
+            tokens += [s for s in token.text.split() if s.isalpha()]
         elif token.ent_iob_ == 'O' and token.pos_ != 'PUNCT':
             if token.like_url:
                 tokens.append('URL')
@@ -182,10 +204,23 @@ def tokenizer_ent(text):
                 tokens.append('EMAIL')
             elif token.like_num:
                 tokens.append('NUM')
+            elif match_itemNo(token):
+                tokens.append('ITEMNUM')
             elif token.is_alpha and len(token) > 1 and not token.is_oov:
                 tokens.append(token.text)
 
     return tokens
+
+# match item No. like (1), (a), (iv)
+def match_itemNo(token):
+    try:
+        if token.nbor(-1).text == '(' and token.nbor(1).text == ')':
+            pattern = re.compile(r"^([a-zA-Z]{1}|[ivx]+|\d{1})$")
+            if pattern.match(token.text):
+                return True
+    except IndexError:
+        return False
+    return False
 
 def entity_feature(sents):
     """Count number of specified named entities for each sentence, using spaCy
