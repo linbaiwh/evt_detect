@@ -39,7 +39,7 @@ csv_ins, csv_outs = prep.find_formtypes(form_types, topfolder)
 
 #%%
 # * Decide how many unique cik - text to choose from each file
-parags = prep.parags_shuffled(input_folder, csv_ins, csv_outs, nmax=110, frac=0.5)
+parags = prep.parags_shuffled(input_folder, csv_ins, csv_outs, nmax=110)
 
 #%%
 # * Decide how many unique sentences to choose for each cik - text
