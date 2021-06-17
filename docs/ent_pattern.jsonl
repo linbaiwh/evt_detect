@@ -1,0 +1,44 @@
+{"label": "TICKER", "pattern": [{"TEXT": "("}, {"TEXT": {"REGEX": "^(NYSE|NASDAQ)$"}}, {"TEXT": ":"}, {"TEXT": {"REGEX": "^([A-Z0-9]+)$"}}, {"TEXT": ")"}]}
+{"label": "SEC", "pattern": "SEC"}
+{"label": "SEC", "pattern": [{"TEXT": "Securities"}, {"TEXT": "and"}, {"TEXT": "Exchange"}, {"TEXT": "Commission"}]}
+{"label": "SEC", "pattern": [{"TEXT": "Securities"}, {"TEXT": "Administrator"}]}
+{"label": "FILING", "pattern": [{"LOWER": "annual"}, {"LOWER": "report"}]}
+{"label": "FILING", "pattern": [{"LOWER": "quarterly"}, {"LOWER": "report"}]}
+{"label": "FILING", "pattern": [{"TEXT": "Form"}, {"TEXT": {"REGEX": "^([0-9a-zA-Z\\-]+)$"}}]}
+{"label": "FILING", "pattern": [{"TEXT": "Exhibit"}, {"TEXT": {"REGEX": "^([0-9a-zA-Z\\-]+)$"}}]}
+{"label": "FILING", "pattern": [{"TEXT": "Schedule"}, {"TEXT": {"REGEX": "^([0-9a-zA-Z\\.]+)$"}}]}
+{"label": "ORG", "pattern": "Cisco"}
+{"label": "GOV", "pattern": "FDA"}
+{"label": "GOV", "pattern": "IRS"}
+{"label": "GOV", "pattern": "FASB"}
+{"label": "GOV", "pattern": "IASB"}
+{"label": "GOV", "pattern": "DOJ"}
+{"label": "GOV", "pattern": "Congress"}
+{"label": "GOV", "pattern": "FINRA"}
+{"label": "GOV", "pattern": "FDIC"}
+{"label": "GOV", "pattern": "FINMA"}
+{"label": "GOV", "pattern": "FRB"}
+{"label": "GOV", "pattern": "FSA"}
+{"label": "GOV", "pattern": [{"TEXT": "Federal"}, {"TEXT": "Reserve"}, {"TEXT": "Bank"}]}
+{"label": "GOV", "pattern": [{"TEXT": "Federal"}, {"TEXT": "Reserve"}, {"TEXT": "Board"}]}
+{"label": "GOV", "pattern": [{"TEXT": "Federal"}, {"TEXT": "Trade"}, {"TEXT": "Commission"}]}
+{"label": "GOV", "pattern": [{"TEXT": "Financial"}, {"TEXT": "Industry "}, {"TEXT": "Regulatory"}, {"TEXT": "Authority"}]}
+{"label": "GOV", "pattern": [{"TEXT": "Federal"}, {"TEXT": "Reserve"}]}
+{"label": "GOV", "pattern": [{"TEXT": "Department"}, {"TEXT": "of"}, {"TEXT": "Justice"}]}
+{"label": "GOV", "pattern": [{"TEXT": "Ministry"}, {"TEXT": "of"}, {"TEXT": "Health"}]}
+{"label": "GOV", "pattern": [{"LOWER": "the"}, {"IS_TITLE": true}, {"TEXT": "Court"}]}
+{"label": "EARNING", "pattern": [{"LOWER": "non-gaap"}]}
+{"label": "EARNING", "pattern": [{"LOWER": "ebitda"}]}
+{"label": "EARNING", "pattern": [{"LOWER": "eps"}]}
+{"label": "EARNING", "pattern": [{"LOWER": "ebit"}]}
+{"label": "EARNING", "pattern": [{"LOWER": "gaap"}]}
+{"label": "LAW", "pattern": [{"TEXT": "Regulation"}, {"TEXT": {"REGEX": "^([A-Z\\-]+)$"}}]}
+{"label": "LAW", "pattern": "FATCA"}
+{"label": "LAW", "pattern": "FCPA"}
+{"label": "LAW", "pattern": [{"IS_TITLE": true}, {"TEXT": "Act"}]}
+{"label": "LAW", "pattern": [{"IS_TITLE": true}, {"TEXT": "Law"}]}
+{"label": "LAW", "pattern": [{"IS_TITLE": true}, {"TEXT": "Laws"}]}
+{"label": "LAW", "pattern": [{"IS_TITLE": true}, {"TEXT": "Regulation"}]}
+{"label": "GPE", "pattern": "USA"}
+{"label": "GPE", "pattern": "EU"}
+{"label": "GPE", "pattern": [{"TEXT": "European"}, {"TEXT": "Union"}]}
