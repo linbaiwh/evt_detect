@@ -19,6 +19,6 @@ def compare_features(data, sents_col, keys, feature_func, **kwargs):
         subfigs[j,0].suptitle(f'{features[j]} Comparison')
 
         for i, key in enumerate(keys):
-            sns.histplot(data=df, x=features[j], hue=key, ax=axes[0,i])
+            sns.violinplot(data=df, x=key, y=features[j], ax=axes[0,i])
     
     plt.show()
