@@ -1,12 +1,17 @@
-{"label": "TICKER", "pattern": [{"TEXT": "("}, {"TEXT": {"REGEX": "^(NYSE|NASDAQ)$"}}, {"TEXT": ":"}, {"TEXT": {"REGEX": "^([A-Z0-9]+)$"}}, {"TEXT": ")"}]}
+{"label": "TICKER", "pattern": [{"TEXT": "("}, {"TEXT": {"REGEX": "^(NYSE|NASDAQ|LSE|TASE)$"}}, {"TEXT": ":"}, {"TEXT": {"REGEX": "^([A-Z0-9\\.]+)$"}}, {"TEXT": ")"}]}
+{"label": "TICKER", "pattern": [{"TEXT": "("}, {"TEXT": {"REGEX": "^(NYSE|NASDAQ|LSE|TASE)$"}}, {"TEXT": ":"}, {"TEXT": {"REGEX": "^([A-Z0-9\\.]+)$"}}, {"ORTH": ","}, {"TEXT": {"REGEX": "^(NYSE|NASDAQ|LSE|TASE)$"}}, {"TEXT": ":"}, {"TEXT": {"REGEX": "^([A-Z0-9\\.]+)$"}}, {"TEXT": ")"}]}
 {"label": "SEC", "pattern": "SEC"}
-{"label": "SEC", "pattern": [{"TEXT": "Securities"}, {"TEXT": "and"}, {"TEXT": "Exchange"}, {"TEXT": "Commission"}]}
+{"label": "SEC", "pattern": [{"LOWER": "the", "OP": "?"}, {"TEXT": {"REGEX": "^(U\\.?S\\.?)$"}, "OP": "?"}, {"TEXT": "Securities"}, {"TEXT": "and"}, {"TEXT": "Exchange"}, {"TEXT": "Commission"}]}
 {"label": "SEC", "pattern": [{"TEXT": "Securities"}, {"TEXT": "Administrator"}]}
 {"label": "FILING", "pattern": [{"LOWER": "annual"}, {"LOWER": "report"}]}
 {"label": "FILING", "pattern": [{"LOWER": "quarterly"}, {"LOWER": "report"}]}
-{"label": "FILING", "pattern": [{"TEXT": "Form"}, {"TEXT": {"REGEX": "^([0-9a-zA-Z\\-]+)$"}}]}
-{"label": "FILING", "pattern": [{"TEXT": "Exhibit"}, {"TEXT": {"REGEX": "^([0-9a-zA-Z\\-]+)$"}}]}
-{"label": "FILING", "pattern": [{"TEXT": "Schedule"}, {"TEXT": {"REGEX": "^([0-9a-zA-Z\\.]+)$"}}]}
+{"label": "FILING", "pattern": [{"LOWER": "the"}, {"IS_TITLE": true, "OP": "?"}, {"ORTH": {"REGEX": "^(Prospectus(es)?)$"}}]}
+{"label": "FILING", "pattern": [{"ORTH": "Free"}, {"ORTH": "Writing"}, {"ORTH": {"REGEX": "^(Prospectus(es)?)$"}}]}
+{"label": "FILING", "pattern": [{"ORTH": "Registration"}, {"ORTH": "Statement"}]}
+{"label": "FILING", "pattern": [{"ORTH": "Proxy"}, {"ORTH": "Statement"}]}
+{"label": "FILING", "pattern": [{"TEXT": "Form"}, {"TEXT": {"REGEX": "^([0-9A-Z\\.\\-]+)$"}}]}
+{"label": "FILING", "pattern": [{"TEXT": "Exhibit"}, {"TEXT": {"REGEX": "^([0-9A-Z\\.\\-]+)$"}}]}
+{"label": "FILING", "pattern": [{"TEXT": "Schedule"}, {"TEXT": {"REGEX": "^([0-9A-Z\\.\\-]+)$"}}]}
 {"label": "ORG", "pattern": "Cisco"}
 {"label": "GOV", "pattern": "FDA"}
 {"label": "GOV", "pattern": "IRS"}
@@ -14,31 +19,77 @@
 {"label": "GOV", "pattern": "IASB"}
 {"label": "GOV", "pattern": "DOJ"}
 {"label": "GOV", "pattern": "Congress"}
+{"label": "GOV", "pattern": "Senate"}
 {"label": "GOV", "pattern": "FINRA"}
 {"label": "GOV", "pattern": "FDIC"}
 {"label": "GOV", "pattern": "FINMA"}
 {"label": "GOV", "pattern": "FRB"}
 {"label": "GOV", "pattern": "FSA"}
+{"label": "GOV", "pattern": "WTO"}
+{"label": "GOV", "pattern": "EPA"}
+{"label": "GOV", "pattern": "DEFRA"}
+{"label": "GOV", "pattern": "AFCA"}
 {"label": "GOV", "pattern": [{"TEXT": "Federal"}, {"TEXT": "Reserve"}, {"TEXT": "Bank"}]}
 {"label": "GOV", "pattern": [{"TEXT": "Federal"}, {"TEXT": "Reserve"}, {"TEXT": "Board"}]}
-{"label": "GOV", "pattern": [{"TEXT": "Federal"}, {"TEXT": "Trade"}, {"TEXT": "Commission"}]}
-{"label": "GOV", "pattern": [{"TEXT": "Financial"}, {"TEXT": "Industry "}, {"TEXT": "Regulatory"}, {"TEXT": "Authority"}]}
+{"label": "GOV", "pattern": [{"LOWER": "the", "OP": "?"}, {"TEXT": "Federal"}, {"IS_TITLE": true}, {"TEXT": "Commission"}]}
+{"label": "GOV", "pattern": [{"TEXT": "Canadian"}, {"TEXT": "Competition"}, {"TEXT": "Bureau"}]}
+{"label": "GOV", "pattern": [{"TEXT": "Financial"}, {"TEXT": "Industry"}, {"TEXT": "Regulatory"}, {"TEXT": "Authority"}]}
+{"label": "GOV", "pattern": [{"TEXT": "Australian"}, {"TEXT": "Financial"}, {"TEXT": "Complaints"}, {"TEXT": "Authority"}]}
 {"label": "GOV", "pattern": [{"TEXT": "Federal"}, {"TEXT": "Reserve"}]}
-{"label": "GOV", "pattern": [{"TEXT": "Department"}, {"TEXT": "of"}, {"TEXT": "Justice"}]}
+{"label": "GOV", "pattern": [{"TEXT": "Governmental"}, {"TEXT": "Authority"}]}
+{"label": "GOV", "pattern": [{"LOWER": "the"}, {"TEXT": {"REGEX": "^(U\\.?S\\.?)$"}}, {"TEXT": "Department"}, {"TEXT": "of"}, {"IS_TITLE": true}]}
+{"label": "GOV", "pattern": [{"ORTH": "United"}, {"TEXT": "States"}, {"TEXT": "Department"}, {"TEXT": "of"}, {"IS_TITLE": true}]}
+{"label": "GOV", "pattern": [{"LOWER": "the"}, {"TEXT": {"REGEX": "^(U\\.?S\\.?)$"}}, {"IS_TITLE": true}, {"TEXT": "Department"}]}
+{"label": "GOV", "pattern": [{"LOWER": "the"}, {"TEXT": "Department"}, {"TEXT": "of"}, {"ORTH": "Defense"}]}
 {"label": "GOV", "pattern": [{"TEXT": "Ministry"}, {"TEXT": "of"}, {"TEXT": "Health"}]}
-{"label": "GOV", "pattern": [{"LOWER": "the"}, {"IS_TITLE": true}, {"TEXT": "Court"}]}
-{"label": "EARNING", "pattern": [{"LOWER": "non-gaap"}]}
-{"label": "EARNING", "pattern": [{"LOWER": "ebitda"}]}
-{"label": "EARNING", "pattern": [{"LOWER": "eps"}]}
-{"label": "EARNING", "pattern": [{"LOWER": "ebit"}]}
-{"label": "EARNING", "pattern": [{"LOWER": "gaap"}]}
+{"label": "GOV", "pattern": [{"LOWER": "the"}, {"IS_TITLE": true, "OP": "?"}, {"IS_TITLE": true}, {"TEXT": "Court"}]}
+{"label": "PERSON", "pattern": [{"ORTH": "Co"}, {"ORTH": "-"}, {"ORTH": "Chief"}]}
+{"label": "ACCT", "pattern": [{"LOWER": "non"}, {"ORTH": "-"}, {"ORTH": "GAAP"}]}
+{"label": "ACCT", "pattern": [{"LOWER": "adjusted", "OP": "?"}, {"LOWER": "ebitda"}]}
+{"label": "ACCT", "pattern": [{"LOWER": "adjusted", "OP": "?"}, {"IS_TITLE": true}, {"ORTH": "Revenue"}]}
+{"label": "ACCT", "pattern": [{"LOWER": "eps"}]}
+{"label": "ACCT", "pattern": [{"LOWER": "ebit"}]}
+{"label": "ACCT", "pattern": "CSR"}
+{"label": "ACCT", "pattern": "AOCI"}
+{"label": "ACCT", "pattern": "Disclosure"}
+{"label": "ACCT", "pattern": "Liabilities"}
+{"label": "ACCT", "pattern": [{"ORTH": {"REGEX": "^(FY\\d{2})$"}}]}
+{"label": "ACCT", "pattern": [{"ORTH": {"REGEX": "^(FY\\d{4})$"}}]}
+{"label": "ACCT", "pattern": [{"ORTH": "CET1"}, {"ORTH": "Capital"}]}
+{"label": "ACCT", "pattern": [{"ORTH": "CET1"}, {"ORTH": "Ratio"}]}
+{"label": "ACCT", "pattern": [{"ORTH": "Internal"}, {"ORTH": "Controls"}, {"LOWER": "and"}, {"IS_TITLE": true}]}
+{"label": "ACCT", "pattern": [{"ORTH": "Material"}, {"ORTH": "Adverse"}, {"ORTH": "Effect"}]}
+{"label": "ACCT", "pattern": [{"ORTH": "Standard"}, {"ORTH": "Industry"}, {"ORTH": "Classification"}]}
+{"label": "ACCT", "pattern": [{"ORTH": "Convertible"}, {"ORTH": "Securities"}]}
+{"label": "ACCT", "pattern": [{"TEXT": {"REGEX": "^(U\\.?S\\.?)$"}, "OP": "?"}, {"ORTH": "GAAP"}]}
+{"label": "ACCT", "pattern": "ASU"}
 {"label": "LAW", "pattern": [{"TEXT": "Regulation"}, {"TEXT": {"REGEX": "^([A-Z\\-]+)$"}}]}
 {"label": "LAW", "pattern": "FATCA"}
 {"label": "LAW", "pattern": "FCPA"}
-{"label": "LAW", "pattern": [{"IS_TITLE": true}, {"TEXT": "Act"}]}
-{"label": "LAW", "pattern": [{"IS_TITLE": true}, {"TEXT": "Law"}]}
-{"label": "LAW", "pattern": [{"IS_TITLE": true}, {"TEXT": "Laws"}]}
+{"label": "LAW", "pattern": "ERISA"}
+{"label": "LAW", "pattern": "PPACA"}
+{"label": "LAW", "pattern": "HIPAA"}
+{"label": "LAW", "pattern": "GLBA"}
+{"label": "LAW", "pattern": "FCC"}
+{"label": "LAW", "pattern": [{"IS_TITLE": true, "OP": "?"}, {"ORTH": "-", "OP": "?"}, {"IS_TITLE": true}, {"TEXT": {"REGEX": "^(Laws?)$"}}]}
+{"label": "LAW", "pattern": [{"ORTH": "the"}, {"IS_TITLE": true, "OP": "*"}, {"ORTH": ",", "OP": "?"}, {"IS_TITLE": true, "OP": "+"}, {"ORTH": "and"}, {"IS_TITLE": true}, {"TEXT": {"REGEX": "^(Laws?)$"}}]}
 {"label": "LAW", "pattern": [{"IS_TITLE": true}, {"TEXT": "Regulation"}]}
-{"label": "GPE", "pattern": "USA"}
-{"label": "GPE", "pattern": "EU"}
+{"label": "LAW", "pattern": [{"LOWER": "the"}, {"IS_TITLE": true, "OP": "?"}, {"TEXT": "Code"}]}
+{"label": "LAW", "pattern": [{"LOWER": "the", "OP": "?"}, {"TEXT": {"REGEX": "^(U\\.?S\\.?)$"}, "OP": "?"}, {"IS_TITLE": true, "OP": "+"}, {"ORTH": "Act"}, {"ORTH": "of", "OP": "?"}, {"SHAPE": "dddd", "OP": "?"}]}
+{"label": "LAW", "pattern": [{"LOWER": "the"}, {"SHAPE": "dddd", "OP": "?"}, {"ORTH": "Act"}]}
+{"label": "LAW", "pattern": [{"LOWER": "the"}, {"ORTH": "Federal"}, {"ORTH": "Acquisition"}, {"ORTH": "Regulation"}]}
+{"label": "GPE", "pattern": [{"IS_TITLE": true}, {"ORTH": ",", "OP": "?"}, {"ORTH": {"REGEX": "^([A-Z]{2})$"}}, {"SHAPE": "ddddd"}, {"ORTH": "USA"}]}
+{"label": "GPE", "pattern": [{"IS_TITLE": true}, {"ORTH": ","}, {"IS_TITLE": true}, {"SHAPE": "ddddd"}, {"ORTH": "USA"}]}
+{"label": "GPE", "pattern": [{"ORTH": "EU"}, {"IS_TITLE": true, "OP": "!"}]}
+{"label": "GPE", "pattern": [{"ORTH": "People"}, {"ORTH": "'s"}, {"ORTH": "Republic"}, {"ORTH": "of"}, {"ORTH": "China"}]}
 {"label": "GPE", "pattern": [{"TEXT": "European"}, {"TEXT": "Union"}]}
+{"label": "GPE", "pattern": [{"TEXT": "United"}, {"TEXT": "States"}]}
+{"label": "CONTRACT", "pattern": [{"ORTH": "Letter"}, {"ORTH": "of"}, {"ORTH": "Credit"}]}
+{"label": "CONTRACT", "pattern": [{"ORTH": "Letters"}, {"ORTH": "of"}, {"ORTH": "Credit"}]}
+{"label": "CONTRACT", "pattern": [{"ORTH": "Asset"}, {"ORTH": "Swap"}]}
+{"label": "CONTRACT", "pattern": [{"IS_TITLE": true}, {"ORTH": {"REGEX": "^(Loans?)$"}}]}
+{"label": "CONTRACT", "pattern": [{"ORTH": "Non", "OP": "?"}, {"ORTH": "-"}, {"ORTH": "Serviced"}, {"IS_TITLE": true}, {"ORTH": {"REGEX": "^(Loans?)$"}}]}
+{"label": "TIME", "pattern": [{"ORTH": "Pacific"}, {"ORTH": "Time"}]}
+{"label": "TIME", "pattern": [{"ORTH": "Eastern"}, {"ORTH": "Time"}]}
+{"label": "EVENT", "pattern": [{"IS_TITLE": true}, {"ORTH": "Investigation"}]}
+{"label": "EVENT", "pattern": [{"IS_TITLE": true, "OP": "?"}, {"ORTH": "-", "OP": "?"}, {"IS_TITLE": true}, {"ORTH": "Event"}]}
