@@ -9,7 +9,7 @@ import importlib
 import evt_detect
 importlib.reload(evt_detect)
 
-from evt_detect.utils.file_io import read_file_df, to_file_df
+from evt_detect.utils.file_io import read_file_df, to_file_df, merge_csv
 from evt_detect.utils.visualize import compare_features
 from evt_detect.features import nlp_features as nlp_feat
 
@@ -22,17 +22,23 @@ tag = 'breach'
 #%%
 form_label = 'CR'
 keys = ['Incident']
+ents = nlp_feat.CR_ents
+tokenizer = nlp_feat.CR_tokenizer
 
 #%%
 form_label = 'PR'
 keys = ['Incident', 'Immaterial']
+ents = nlp_feat.PR_ents
+tokenizer = nlp_feat.PR_tokenizer
 
 #%%
 sents_notlabeled = label_folder / f'{tag}_{form_label}_sents.xlsx'
-sents_labeled = label_folder / f'{tag}_{form_label}_sents_labeled_1.xlsx'
+sents_labeled = label_folder / f'{tag}_{form_label}_sents_labeled.xlsx'
+sents_labeled_1 = label_folder / f'{tag}_{form_label}_sents_labeled_1.xlsx'
 sents_col = 'sents'
-data = read_file_df(sents_notlabeled)
-
+data = merge_csv([sents_labeled, sents_labeled_1])
+data.drop('cik', axis=1, inplace=True)
+data.fillna(0, inplace=True)
 
 #%%
 # * Examine the named entities 
@@ -42,13 +48,13 @@ to_file_df(named_entities, entity_save)
 
 #%%
 # * Compare number of named entitie
-compare_features(data, sents_col, keys, nlp_feat.entity_feature)
+compare_features(data, sents_col, keys, nlp_feat.entity_feature, ents=ents)
 
 #%%
 # * Compare most frequent words
 countkwargs1 = {
     'lowercase': False,
-    'tokenizer': nlp_feat.tokenizer_ent,
+    'tokenizer': tokenizer,
     'ngram_range': (1, 1),
 }
 top_100_1gram = nlp_feat.compare_top_n_words(data, sents_col, keys, n=100, **countkwargs1)
@@ -58,7 +64,7 @@ to_file_df(top_100_1gram, top_1gram_save)
 #%%
 countkwargs2 = {
     'lowercase': False,
-    'tokenizer': nlp_feat.tokenizer_ent,
+    'tokenizer': tokenizer,
     'ngram_range': (2, 2),
 }
 top_100_2gram = nlp_feat.compare_top_n_words(data, sents_col, keys, n=100, **countkwargs2)
@@ -68,7 +74,7 @@ to_file_df(top_100_2gram, top_2gram_save)
 #%%
 countkwargs3 = {
     'lowercase': False,
-    'tokenizer': nlp_feat.tokenizer_ent,
+    'tokenizer': tokenizer,
     'ngram_range': (3, 3),
 }
 top_100_3gram = nlp_feat.compare_top_n_words(data, sents_col, keys, n=100, **countkwargs3)
@@ -77,7 +83,7 @@ to_file_df(top_100_3gram, top_3gram_save)
 
 #%%
 # * Compare length features
-compare_features(data, sents_col, keys, nlp_feat.length_feature)
+compare_features(data, sents_col, keys, nlp_feat.length_feature, tokenizer=tokenizer)
 
 #%%
 # * Compare parts-of-speech tags
