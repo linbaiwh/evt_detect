@@ -1,6 +1,7 @@
 import pandas as pd
 import re
 from pathlib import Path
+from functools import partial
 from textblob import TextBlob
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from spacy.language import Language
@@ -168,17 +169,21 @@ def find_word_entity(sents):
 
 # modify the named entities (remove incorrect named entities)
 def match_not_ent(token):
+    tokens = token.lower_.split()
     if token.ent_type_ == 'ORG':
         neg_org = ["agreement", "breach", "requirement", "change", "report", "stock", "contract", "shareholder", "policy", 
         "statement", "rate", "notice", "diluted", "government", "document", "commitment", "offer", "award", "termination", "pin",
-        " law", " act", " regulation", " time", "market value", "regulatory"]
+        "law", " act", " regulation", " time", "market", "asset", "regulatory"]
         for norg in neg_org:
-            if norg in token.lower_:
+            if norg in tokens:
                 return True
     return False
 
+CR_ents = ['DATE', 'TIME', 'TICKER', 'GPE', 'PERSON', 'PERCENT', 'LAW', 'MONEY', 'FILING', 'GOV', 'LOC', 'SEC', 'ORG']
+PR_ents = ['PERCENT', 'LAW', 'MONEY', 'FILING', 'GOV', 'SEC']
+
 # * tokenizer that replace certain named entities with the entity label
-def tokenizer_ent(text):
+def tokenizer_ent(text, ents=None):
     """tokenizer that transform text to a list of tokens, can be used with CountVectorizer.
     The tokenizer replaces certain types of named entity with the entity label from spaCy.
 
@@ -188,12 +193,18 @@ def tokenizer_ent(text):
     Returns:
         List of string: List of resulting tokens
     """
+    ORG_ent = False
+    if ents is not None:
+        if 'ORG' in ents:
+            ORG_ent = True
+            ents = [ent for ent in ents if ent != 'ORG']
+        
     doc = nlp(text)
     tokens = []
     for token in doc:
-        if token.ent_iob_ == 'B' and token.ent_type_ in ('DATE', 'TIME', 'MONEY', 'GPE', 'LOC', 'TICKER', 'PERSON', 'LAW', 'PERCENT'):
+        if ents is not None and token.ent_iob_ == 'B' and token.ent_type_ in ents:
             tokens.append(token.ent_type_)
-        elif token.ent_iob_ == 'B' and token.ent_type_ == 'ORG' and not match_not_ent(token):
+        elif ORG_ent and token.ent_iob_ == 'B' and token.ent_type_ == 'ORG' and not match_not_ent(token):
             tokens.append('ORG')
         elif token.ent_iob_ == 'B':
             tokens += [s for s in token.text.split() if s.isalpha()]
@@ -222,22 +233,30 @@ def match_itemNo(token):
         return False
     return False
 
-def entity_feature(sents):
+def entity_feature(sents, ents=None):
     """Count number of specified named entities for each sentence, using spaCy
 
     Args:
         sents (List of string): List of sentences
+        ents (List of string): List of entities to summarize
 
     Returns:
         DataFrame: DataFrame containing the original sentences and the number of specified named entities
     """
-    vocab = ['ORG', 'DATE', 'TIME', 'MONEY', 'GPE', 'LOC', 'URL', 'EMAIL', 'NUM']
-    vectorizer = CountVectorizer(lowercase=False, tokenizer=tokenizer_ent, vocabulary=vocab)
+    vocab = ['URL', 'EMAIL', 'NUM', 'ITEMNUM']
+    if ents is not None:
+        vocab += ents
+    
+    tokenizer = partial(tokenizer_ent, ents=ents)
+
+    vectorizer = CountVectorizer(lowercase=False, tokenizer=tokenizer, vocabulary=vocab)
     bag_of_words = vectorizer.fit_transform(sents)
     df = pd.DataFrame(bag_of_words.toarray(), columns=vectorizer.get_feature_names())
     df['sents'] = sents
     return df
 
+CR_tokenizer = partial(tokenizer_ent, ents=CR_ents)
+PR_tokenizer = partial(tokenizer_ent, ents=PR_ents)
 
 # * Frequency Analysis
 def get_top_n_words(sents, n=100, **kwargs):
