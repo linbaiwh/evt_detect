@@ -21,6 +21,13 @@ def test_ent_ruler():
     court = """the Bankruptcy Court"""
     doc = nlp_feat.nlp(court)
     assert doc.ents[0].label_ == 'GOV'
+    acct = """related to our non-GAAP financial measures"""
+    doc = nlp_feat.nlp(acct)
+    assert doc.ents[0].label_ == 'ACCT'
+    gpe = """Deerfield, IL 60015 USA"""
+    doc = nlp_feat.nlp(gpe)
+    assert doc.ents[0].label_ == 'GPE'
+
 
 def test_valid_sent():
     sents_invalid = [
@@ -75,7 +82,7 @@ def test_match_itemNo():
         assert nlp_feat.match_itemNo(doc[1]) == False
 
 def test_tokenizer_ent(sents_list):
-    tokens_0 = nlp_feat.tokenizer_ent(sents_list[0])
+    tokens_0 = nlp_feat.tokenizer_ent(sents_list[0], ents=nlp_feat.CR_ents)
     print(tokens_0)
     assert 'DATE' in tokens_0
 
@@ -92,10 +99,10 @@ def test_tokenizer_ent(sents_list):
     assert 'ITEMNUM' not in tokens_15
 
 def test_entity_feature(sents_list):
-    df = nlp_feat.entity_feature(sents_list)
+    df = nlp_feat.entity_feature(sents_list, ents=nlp_feat.CR_ents)
     print(df.iloc[0])
     assert df.shape[0] == len(sents_list)
-    assert df.shape[1] == 10
+    assert df.shape[1] == len(nlp_feat.CR_ents) + 5
 
 def test_get_top_words(sents_list):
     top_words, words_freq = nlp_feat.get_top_n_words(sents_list, n=5)
@@ -104,13 +111,13 @@ def test_get_top_words(sents_list):
     assert len(top_words) == 5
 
     top_words, words_freq = nlp_feat.get_top_n_words(sents_list, n=5, 
-    lowercase=False, tokenizer=nlp_feat.tokenizer_ent, ngram_range=(1,2))
+    lowercase=False, tokenizer=nlp_feat.CR_tokenizer, ngram_range=(1,2))
     print(top_words)
     print(words_freq)
     assert len(top_words) == 5
 
 def test_length_feature(sents_list):
-    df = nlp_feat.length_feature(sents_list, nlp_feat.tokenizer_ent)
+    df = nlp_feat.length_feature(sents_list, nlp_feat.CR_tokenizer)
     print(df.iloc[0])
     assert df.shape[0] == len(sents_list)
     assert df.shape[1] == 6
