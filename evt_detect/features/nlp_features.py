@@ -290,6 +290,8 @@ def length_feature(sents, tokenizer=tokenizer_ent):
         DataFrame: DataFrame containing original sentences and the length features
     """
     df = pd.DataFrame({'sents': sents})
+    if tokenizer is None:
+        tokenizer = lambda x: str(x).split(" ")
     tokens = df['sents'].map(tokenizer)
     df['word_count'] = tokens.map(len)
     df['char_count'] = tokens.map(lambda x: sum(len(token) for token in x))
