@@ -122,6 +122,11 @@ def test_length_feature(sents_list):
     assert df.shape[0] == len(sents_list)
     assert df.shape[1] == 6
 
+    df = nlp_feat.length_feature(sents_list, tokenizer=None)
+    print(df.iloc[0])
+    assert df.shape[0] == len(sents_list)
+    assert df.shape[1] == 6
+
 
 def test_count_pos_tag(sents_list):
     doc = nlp_feat.nlp(sents_list[0])
