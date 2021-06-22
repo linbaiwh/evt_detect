@@ -1,17 +1,15 @@
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedShuffleSplit
-from sklearn.feature_selection import f_classif, SelectKBest, chi2, mutual_info_classif
-from sklearn.decomposition import TruncatedSVD
+import joblib
+import matplotlib.pyplot as plt
+
+from sklearn.feature_extraction.text import TfidfTransformer, CountVectorizer
 
 from sklearn.pipeline import Pipeline, FeatureUnion
-from sklearn.preprocessing import StandardScaler, MaxAbsScaler, Normalizer, MinMaxScaler, QuantileTransformer
-from sklearn.feature_extraction.text import TfidfTransformer, CountVectorizer
-from sklearn.svm import SVC
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import make_scorer, average_precision_score, roc_auc_score, precision_score, recall_score, precision_recall_curve, f1_score
-
 from imblearn.pipeline import Pipeline as Pipeline_im
+
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.metrics import make_scorer, average_precision_score, roc_auc_score, precision_score, recall_score, precision_recall_curve, f1_score
 
 from evt_detect.models.trfs import trf_length, trf_pos, trf_sentiment
 
@@ -61,19 +59,20 @@ class model_eval():
         }
         self.model_sum = {}
         self.model_compare = []
+        self.models = []
 
-    def gen_train_test_set(self):
+    def gen_train_test_set(self, test_size=0.2):
         X = self.data[self.x_col]
         y = self.data[self.y_col]
         y.fillna(0, inplace=True)
-        self.X_train, self.y_train, self.X_test, self.y_test = train_test_split(X,y,test_size=0.2,stratify=y, random_state=2021)
+        self.X_train, self.y_train, self.X_test, self.y_test = train_test_split(X,y,test_size=test_size,stratify=y, random_state=2021)
         return self
 
 
-    def model_tuning(self, model, params, refit_score='average_precision'):
+    def model_tuning(self, model, params, refit_score='pr_auc'):
         model_spec = dict((name, type(step).__name__) for name, step in model.steps[1:])
 
-        param_elgible = model.get_params.keys()
+        param_elgible = model.get_params().keys()
         params = {k:v for k, v in params.items() if k in param_elgible}
 
         gs = GridSearchCV(model, params, n_jobs=-1, scoring=self.scores, cv=3, return_train_score=True, refit=refit_score)
@@ -84,6 +83,7 @@ class model_eval():
             self.model_compare.append(self.model_sum)
 
         self.model_sum = {**model_spec, **gs.best_params_}
+        self.model_sum[f'valid_{refit_score}'] = gs.best_score_
 
         return gs
 
@@ -99,8 +99,21 @@ class model_eval():
         idx = np.argmax(f1s)
         self.threshold = thresholds[idx]
         self.model_sum['threshold'] = self.threshold
+
+        self.plot_best_threshold(precisions, recalls, idx)
+
         return self
 
+    def plot_best_threshold(self, precisions, recalls, best_idx):
+        no_skill = len(self.y_train[self.y_train==1]) / len(self.y_train)
+        plt.plot([0,1], [no_skill,no_skill], linestyle='--', label='No Skill')
+        plt.plot(recalls, precisions, marker='.')
+        plt.scatter(recalls[best_idx], precisions[best_idx], marker='o', color='black', label='Best')
+        # axis labels
+        plt.xlabel('Recall')
+        plt.ylabel('Precision')
+        plt.legend()
+        plt.show()
 
     def model_predict(self):
         try:
@@ -112,6 +125,15 @@ class model_eval():
         
         self.y_train_pred = (y_train_score > self.threshold).astype(int)
         self.y_test_pred = (y_test_score > self.threshold).astype(int)
+
+        model_scores = {
+            'train_pr_auc': average_precision_score(self.y_train, y_train_score),
+            'test_pr_auc': average_precision_score(self.y_test, y_test_score),
+            'train_roc_auc': roc_auc_score(self.y_train, y_train_score),
+            'test_roc_auc': roc_auc_score(self.y_test, y_test_score)
+        }
+
+        self.model_sum = {**self.model_sum, **model_scores}
 
         return self
 
@@ -136,3 +158,7 @@ class model_eval():
         }
         self.model_sum = {**self.model_sum, **model_scores}
         return self
+
+    def model_save(self, save_file):
+        joblib.dump(self.model, save_file)
+
