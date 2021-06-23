@@ -44,19 +44,18 @@ def plot_search_results(grid):
         subfigs[j,0].supylabel('Best Score')
         
         for i, param in enumerate(params):
-            param_group = cv_results.groupby(f'param_{param}')
-            x = param_group.groups.keys()
-            means_train = param_group[f'mean_train_{scores[j]}'].min()
-            e_2 = cv_results.loc[param_group.idxmin()[f'mean_train_{scores[j]}'], f'std_train_{scores[j]}']
-            means_test = param_group[f'mean_test_{scores[j]}'].min()
-            e_1 = cv_results.loc[param_group.idxmin()[f'mean_test_{scores[j]}'], f'std_test_{scores[j]}']
-            
-            axes[0, i].errorbar(x, means_test, e_1, linestyle='--', marker='o', label='test')
-            axes[0, i].errorbar(x, means_train, e_2, linestyle='-', marker='^',label='train' )
+            plot_cv = pd.melt(
+                cv_results, id_vars=[f'param_{param}'], 
+                value_vars=[f'mean_train_{scores[j]}', f'mean_test_{scores[j]}'], 
+                var_name='type', value_name=scores[j]
+                )            
+            try:
+                sns.lineplot(x=f'param_{param}', y=scores[j], data=plot_cv, hue='type', ax=axes[0,i])
+            except TypeError:
+                sns.violinplot(x=f'param_{param}', y=scores[j], data=plot_cv, hue='type', ax=axes[0,i], palette="Set3")
             
             axes[0, i].set_xlabel(param.upper())
-            axes[0,i].legend()
 
-    plt.subplots_adjust(top=0.9)
-    plt.legend()
+    plt.subplots_adjust(top=0.92)
     plt.show()
+    return fig
