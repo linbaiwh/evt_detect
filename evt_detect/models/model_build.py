@@ -33,7 +33,7 @@ def model_prep(classifier, scaler=None, fselector=None, oversampler=None, unders
         steps.append(('scaler', scaler()))
     
     if fselector is not None:
-        steps.append(('red', fselector()))
+        steps.append(('fselector', fselector()))
 
     if oversampler is not None:
         steps.append(('oversampler', oversampler()))
@@ -59,13 +59,12 @@ class model_eval():
         }
         self.model_sum = {}
         self.model_compare = []
-        self.models = []
 
     def gen_train_test_set(self, test_size=0.2):
         X = self.data[self.x_col]
         y = self.data[self.y_col]
         y.fillna(0, inplace=True)
-        self.X_train, self.y_train, self.X_test, self.y_test = train_test_split(X,y,test_size=test_size,stratify=y, random_state=2021)
+        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(X,y,test_size=test_size,stratify=y, random_state=2021)
         return self
 
 
@@ -100,7 +99,7 @@ class model_eval():
         self.threshold = thresholds[idx]
         self.model_sum['threshold'] = self.threshold
 
-        self.plot_best_threshold(precisions, recalls, idx)
+        self.pr_curve = self.plot_best_threshold(precisions, recalls, idx)
 
         return self
 
@@ -114,6 +113,7 @@ class model_eval():
         plt.ylabel('Precision')
         plt.legend()
         plt.show()
+        return plt.gcf()
 
     def model_predict(self):
         try:
@@ -161,4 +161,7 @@ class model_eval():
 
     def model_save(self, save_file):
         joblib.dump(self.model, save_file)
+
+    def models_summary(self):
+        return pd.DataFrame(self.model_compare)
 
