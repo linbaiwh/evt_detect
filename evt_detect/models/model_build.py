@@ -91,7 +91,7 @@ class model_eval():
         try:
             y_score = self.model.predict_proba(self.X_train)[:,1]
         except:
-            y_score = self.model.decision_function(self.X_train)[:,1]
+            y_score = self.model.decision_function(self.X_train)
 
         precisions, recalls, thresholds = precision_recall_curve(self.y_train, y_score)
         f1s = [2*p*r/(p+r) for p, r in zip(precisions, recalls)]
@@ -105,23 +105,24 @@ class model_eval():
 
     def plot_best_threshold(self, precisions, recalls, best_idx):
         no_skill = len(self.y_train[self.y_train==1]) / len(self.y_train)
-        plt.plot([0,1], [no_skill,no_skill], linestyle='--', label='No Skill')
-        plt.plot(recalls, precisions, marker='.')
-        plt.scatter(recalls[best_idx], precisions[best_idx], marker='o', color='black', label='Best')
+        fig = plt.figure(figsize=(6, 4))
+        ax = fig.add_subplot()
+        ax.plot([0,1], [no_skill,no_skill], linestyle='--', label='No Skill')
+        ax.plot(recalls, precisions, marker='.')
+        ax.scatter(recalls[best_idx], precisions[best_idx], marker='o', color='black', label='Best')
         # axis labels
-        plt.xlabel('Recall')
-        plt.ylabel('Precision')
+        ax.set_xlabel('Recall')
+        ax.set_ylabel('Precision')
         plt.legend()
-        plt.show()
-        return plt.gcf()
+        return fig
 
     def model_predict(self):
         try:
             y_train_score = self.model.predict_proba(self.X_train)[:,1]
             y_test_score = self.model.predict_proba(self.X_test)[:,1]
         except:
-            y_train_score = self.model.decision_function(self.X_train)[:,1]
-            y_test_score = self.model.decision_function(self.X_test)[:,1]
+            y_train_score = self.model.decision_function(self.X_train)
+            y_test_score = self.model.decision_function(self.X_test)
         
         self.y_train_pred = (y_train_score > self.threshold).astype(int)
         self.y_test_pred = (y_test_score > self.threshold).astype(int)
@@ -141,11 +142,16 @@ class model_eval():
         err_train = np.not_equal(self.y_train_pred, self.y_train)
         err_test = np.not_equal(self.y_test_pred, self.y_test)
 
-        errs = {}
-        errs['train'] = self.X_train[:, err_train]
-        errs['test'] = self.X_test[:, err_test]
+        errs = self.X_train[err_train].tolist()
+        errs += self.X_test[err_test].tolist()
 
-        return pd.DataFrame.from_dict(errs, orient='index').transpose()
+        trues = self.y_train[err_train].tolist()
+        trues += self.y_test[err_test].tolist()
+
+        preds = self.y_train_pred[err_train].tolist()
+        preds += self.y_test_pred[err_test].tolist()
+
+        return pd.DataFrame(zip(errs, trues, preds), columns=[self.x_col, self.y_col, f'{self.y_col}_pred'])
 
     def model_val(self):
         model_scores = {
