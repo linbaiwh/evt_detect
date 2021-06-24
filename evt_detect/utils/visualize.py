@@ -35,7 +35,7 @@ def plot_search_results(grid):
     scores = [score[11:] for score in cv_results.columns if 'mean_train_' in score]
     num_scores = len(scores)
 
-    fig = plt.figure(figsize=(5 * num_params, 4 * num_scores))
+    fig = plt.figure(figsize=(5 * num_params, 5 * num_scores))
     subfigs = fig.subfigures(num_scores, 1, squeeze=False, wspace=0.05, hspace=0.05)
     
     for j in range(num_scores):
@@ -57,5 +57,4 @@ def plot_search_results(grid):
             axes[0, i].set_xlabel(param.upper())
 
     plt.subplots_adjust(top=0.92)
-    plt.show()
     return fig
