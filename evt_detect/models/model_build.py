@@ -78,8 +78,6 @@ class model_eval():
         gs.fit(self.X_train, self.y_train)
 
         self.model = gs.best_estimator_
-        if self.model_sum:
-            self.model_compare.append(self.model_sum)
 
         self.model_sum = {**model_spec, **gs.best_params_}
         self.model_sum[f'valid_{refit_score}'] = gs.best_score_
@@ -167,6 +165,9 @@ class model_eval():
 
     def model_save(self, save_file):
         joblib.dump(self.model, save_file)
+
+    def model_fin(self):
+        self.model_compare.append(self.model_sum)
 
     def models_summary(self):
         return pd.DataFrame(self.model_compare)
