@@ -40,14 +40,14 @@ models = [
 # * Classifier Hyperparameters
 clf_params = [
     {
-        'classifier__C': [0.1, 0.5, 0.8],  
+        'classifier__C': [0.4, 0.5, 0.6],  
         'classifier__class_weight': ['balanced']  
     }, # * Baseline model
     {
         'classifier__n_estimators': [100, 300],  
-        'classifier__criterion': ['gini', 'entropy'],  
-        'classifier__max_features': ['sqrt', 0.33, 0.5, 0.8],  
-        'classifier__class_weight': ['balanced', 'balanced_subsample']  
+        'classifier__criterion': ['entropy'],  
+        'classifier__max_features': ['sqrt'],  
+        'classifier__class_weight': ['balanced']  
     }, # * Tree-based model
     {
         'classifier__kernel': ['rbf'],  
@@ -88,7 +88,7 @@ def main(form_label, y_col='Incident'):
         'features__vect__tfidf__use_idf': [True],
         'features__length__tokenizer': [tokenizer],
         
-        'fselector__n_components': [300, 500, 800]
+        'fselector__n_components': [400]
     }
 
     # * Prepare traing and test data
@@ -104,6 +104,7 @@ def main(form_label, y_col='Incident'):
 
     # * Model training
     for i in range(len(models)):
+        print(f'start training {model_names[i]}')
         model_spec = models[i]
         params = {**feat_params, **clf_params[i]}
         
@@ -115,18 +116,19 @@ def main(form_label, y_col='Incident'):
         data_train.model_val()
 
         # * Save model specific results
-        try:
-            gsplot = plot_search_results(gs)
-            gsplot.savefig(compare_folder / f'{form_label}_{y_col}_{model_names[i]}_gsplot.png')
-        except:
-            pass
+
+        gsplot = plot_search_results(gs)
+        gsplot.savefig(compare_folder / f'{form_label}_{y_col}_{model_names[i]}_gsplot.png')
+
 
         data_train.pr_curve.savefig(compare_folder / f'{form_label}_{y_col}_{model_names[i]}_pr_curve.png')
+
         err_pred = data_train.predict_error()
         to_file_df(err_pred, compare_folder / f'{form_label}_{y_col}_{model_names[i]}_pred_err.xlsx')
 
-        data_train.model_save(model_folder / f'{form_label}_{y_col}_{model_names[i]}.joblib')
 
+        data_train.model_save(model_folder / f'{form_label}_{y_col}_{model_names[i]}.joblib')
+        print(f'{model_names[i]} saved')
     # * Save results for all models
     models_df = data_train.models_summary()
     to_file_df(models_df, compare_folder / f'{form_label}_{y_col}_compare.xlsx')
