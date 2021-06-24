@@ -4,6 +4,11 @@ import os
 from pathlib import Path
 sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+import pandas as pd
+
+import warnings
+warnings.filterwarnings("ignore")
+
 from sklearn.preprocessing import StandardScaler, MaxAbsScaler, Normalizer, MinMaxScaler, QuantileTransformer
 from sklearn.decomposition import TruncatedSVD
 from sklearn.feature_selection import SelectKBest, f_classif, chi2, mutual_info_classif
@@ -26,7 +31,7 @@ models = [
         'fselector': TruncatedSVD
     }, # * Baseline model
     {
-        'classifier': RandomForestClassifier,
+        'classifier': XGBClassifier,
         'scaler': MaxAbsScaler,
         'fselector': TruncatedSVD
     }, # * Tree-based model
@@ -40,19 +45,25 @@ models = [
 # * Classifier Hyperparameters
 clf_params = [
     {
-        'classifier__C': [0.4, 0.5, 0.6],  
+        'classifier__C': [0.4],  
+        'classifier__penalty': ['l2'],  
+        'classifier__solver': ['lbfgs'],  
         'classifier__class_weight': ['balanced']  
     }, # * Baseline model
     {
-        'classifier__n_estimators': [100, 300],  
-        'classifier__criterion': ['entropy'],  
-        'classifier__max_features': ['sqrt'],  
-        'classifier__class_weight': ['balanced']  
+        'classifier__n_estimators': [300],  
+        'classifier__max_depth': [5],  
+        'classifier__min_child_weight': [1],  
+        'classifier__gamma': [0],  
+        'classifier__subsample': [0.8],  
+        'classifier__colsample_bytree': [0.8],  
+        'classifier__scale_pos_weight': [1] 
     }, # * Tree-based model
     {
         'classifier__kernel': ['rbf'],  
-        'classifier__C': [0.1, 1, 5, 10],  
-        'classifier__gamma': ['scale', 'auto'],  
+        'classifier__C': [4.5],  
+        'classifier__gamma': ['scale'],  
+        'classifier__probability': [True],  
         'classifier__class_weight': ['balanced']  
     } # * SVC
 ]
@@ -82,13 +93,13 @@ def main(form_label, y_col='Incident'):
     feat_params = {
         'features__vect__count__lowercase': [False],
         'features__vect__count__tokenizer': [tokenizer],
-        'features__vect__count__ngram_range': [(1,2)],
-        'features__vect__count__max_df': [0.9],
-        'features__vect__count__min_df': [2],
+        'features__vect__count__ngram_range': [(1,2), (1,3), (2,2), (2,3)],
+        'features__vect__count__max_df': [0.7, 0.9, 1],
+        'features__vect__count__min_df': [1, 2, 4],
         'features__vect__tfidf__use_idf': [True],
         'features__length__tokenizer': [tokenizer],
         
-        'fselector__n_components': [400]
+        'fselector__n_components': [200, 400, 600]
     }
 
     # * Prepare traing and test data
@@ -114,6 +125,7 @@ def main(form_label, y_col='Incident'):
         data_train.find_best_threshold()
         data_train.model_predict()
         data_train.model_val()
+        data_train.model_fin()
 
         # * Save model specific results
 
@@ -131,7 +143,13 @@ def main(form_label, y_col='Incident'):
         print(f'{model_names[i]} saved')
     # * Save results for all models
     models_df = data_train.models_summary()
-    to_file_df(models_df, compare_folder / f'{form_label}_{y_col}_compare.xlsx')
+    models_comp_file = compare_folder / f'{form_label}_{y_col}_compare.xlsx'
+
+    if models_comp_file.exists():
+        models_pre = read_file_df(models_comp_file)
+        models_df = pd.concat([models_df, models_pre], ignore_index=True)
+
+    to_file_df(models_df, models_comp_file)
 
 
 if __name__ == "__main__":
