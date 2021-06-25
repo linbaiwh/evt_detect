@@ -9,8 +9,8 @@ import pandas as pd
 import warnings
 warnings.filterwarnings("ignore")
 
-from sklearn.preprocessing import StandardScaler, MaxAbsScaler, Normalizer, MinMaxScaler, QuantileTransformer
-from sklearn.decomposition import TruncatedSVD
+from sklearn.preprocessing import StandardScaler, MaxAbsScaler, Normalizer
+from sklearn.decomposition import TruncatedSVD, NMF
 from sklearn.feature_selection import SelectKBest, f_classif, chi2, mutual_info_classif
 
 from sklearn.linear_model import LogisticRegression
@@ -27,18 +27,18 @@ from evt_detect.utils.visualize import plot_search_results
 models = [
     {
         'classifier': LogisticRegression,
-        'scaler': MaxAbsScaler,
-        'fselector': TruncatedSVD
+        'scaler': Normalizer,
+        'fselector': NMF
     }, # * Baseline model
     {
         'classifier': XGBClassifier,
-        'scaler': MaxAbsScaler,
-        'fselector': TruncatedSVD
+        'scaler': Normalizer,
+        'fselector': NMF
     }, # * Tree-based model
     {
         'classifier': SVC,
-        'scaler': MaxAbsScaler,
-        'fselector': TruncatedSVD
+        'scaler': Normalizer,
+        'fselector': NMF
     } # * SVC
 ]
 
@@ -93,13 +93,18 @@ def main(form_label, y_col='Incident'):
     feat_params = {
         'features__vect__count__lowercase': [False],
         'features__vect__count__tokenizer': [tokenizer],
-        'features__vect__count__ngram_range': [(1,2), (1,3), (2,2), (2,3)],
-        'features__vect__count__max_df': [0.7, 0.9, 1],
+        'features__vect__count__ngram_range': [(1,2), (1,3)],
+        'features__vect__count__max_df': [0.7, 0.9, 1.0],
         'features__vect__count__min_df': [1, 2, 4],
         'features__vect__tfidf__use_idf': [True],
+        'features__vect__tfidf__sublinear_tf': [True],
         'features__length__tokenizer': [tokenizer],
         
-        'fselector__n_components': [200, 400, 600]
+        'fselector__n_components': [100, 200, 400, 600],
+        'fselector__alpha': [0.1],
+        'fselector__l1_ratio': [0.5]
+        
+
     }
 
     # * Prepare traing and test data
