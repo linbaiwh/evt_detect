@@ -3,7 +3,10 @@ import re
 from pathlib import Path
 from functools import partial
 from textblob import TextBlob
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.preprocessing import Normalizer, StandardScaler, MaxAbsScaler, RobustScaler
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+from sklearn.decomposition import TruncatedSVD
+from sklearn.pipeline import Pipeline
 from spacy.language import Language
 import spacy
 
@@ -393,4 +396,25 @@ def compare_top_n_words(df, sents_col, keys, n=100, **kwargs):
         
     return top_100
 
-            
+#   * Latent Semantic Analysis (LSA, LSI) & NMF & Latent Dirichlet Allocation (LDA)
+def topics_lsa(X, decompose=TruncatedSVD, scaler=Normalizer, tfidf=True, vect_params={}, dc_params={}):
+    steps = [
+        ('vect', CountVectorizer(**vect_params))
+    ]
+    if tfidf:
+        steps.append(('tfidf', TfidfTransformer(use_idf=True, sublinear_tf=True)))
+
+    if scaler == StandardScaler:
+        steps.append(('scaler', StandardScaler(with_mean=False)))
+    elif scaler == RobustScaler:
+        steps.append(('scaler', RobustScaler(with_centering=False)))
+    else:
+        steps.append(('scaler', scaler()))
+    
+    steps.append(('decompose', decompose(**dc_params)))
+    pipe = Pipeline(steps).fit(X)
+    feature_names = pipe['vect'].get_feature_names()
+
+    return pipe['decompose'], feature_names 
+
+    

@@ -146,3 +146,9 @@ def test_sentiment_feature(sents_list):
     print(df.iloc[11])
     assert df.shape[0] == len(sents_list)
     assert df.shape[1] == 3
+
+
+def test_topics_lsa(sents_list):
+    decomp, features = nlp_feat.topics_lsa(sents_list)
+    assert decomp.components_.shape[0] > 0
+    assert decomp.components_.shape[1] == len(features)
