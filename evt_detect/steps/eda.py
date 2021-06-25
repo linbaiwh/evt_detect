@@ -3,14 +3,15 @@ import sys
 import os
 from pathlib import Path
 sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-import importlib
+
+from sklearn.preprocessing import Normalizer, StandardScaler, MaxAbsScaler, RobustScaler
+from sklearn.decomposition import TruncatedSVD, NMF, LatentDirichletAllocation
 
 #%%
 import evt_detect
-importlib.reload(evt_detect)
 
 from evt_detect.utils.file_io import read_file_df, to_file_df, merge_csv
-from evt_detect.utils.visualize import compare_features
+from evt_detect.utils.visualize import compare_features, plot_top_words
 from evt_detect.features import nlp_features as nlp_feat
 
 #%%
@@ -39,6 +40,7 @@ sents_col = 'sents'
 data = merge_csv([sents_labeled, sents_labeled_1])
 data.drop('cik', axis=1, inplace=True)
 data.fillna(0, inplace=True)
+data.drop_duplicates(inplace=True)
 
 #%%
 # * Examine the named entities 
@@ -92,3 +94,68 @@ compare_features(data, sents_col, keys, nlp_feat.pos_feature)
 #%%
 # * Compare sentiment features
 compare_features(data, sents_col, keys, nlp_feat.sentiment_feature)
+
+
+#%%
+# * Examine top 20 words for the top 10 topics
+# LSA
+vect_params = {
+    'lowercase': False,
+    'tokenizer': tokenizer,
+    'ngram_range': (1, 2),
+    'max_df': 0.9,
+    'min_df': 2,
+    'max_features': 1000
+}
+svd_params = {
+    'n_components': 10
+}
+svd, svd_words = nlp_feat.topics_lsa(
+    data[sents_col], decompose=TruncatedSVD,
+    scaler=Normalizer, tfidf=True,
+    vect_params=vect_params, dc_params=svd_params
+    )
+plot_top_words(svd, svd_words, 20, 'Topics in LSA model')
+
+#%%
+nmf_params = {
+    'n_components': 10,
+    'alpha': 0.1,
+    'l1_ratio': 0.5
+}
+
+nmf, nmf_words = nlp_feat.topics_lsa(
+    data[sents_col], decompose=NMF,
+    scaler=Normalizer, tfidf=True,
+    vect_params=vect_params, dc_params=nmf_params
+    )
+plot_top_words(nmf, nmf_words, 20, 'Topics in NMF model (Frobenius norm)')
+
+#%%
+nmfk_params = {
+    'n_components': 10,
+    'alpha': 0.1,
+    'l1_ratio': 0.5,
+    'beta_loss': 'kullback-leibler', 
+    'solver':'mu'
+}
+
+nmfk, nmfk_words = nlp_feat.topics_lsa(
+    data[sents_col], decompose=NMF,
+    scaler=Normalizer, tfidf=True,
+    vect_params=vect_params, dc_params=nmfk_params
+    )
+plot_top_words(nmfk, nmfk_words, 20, 'Topics in NMF model (generalized Kullback-Leibler divergence)')
+
+#%%
+lda_params = {
+    'n_components': 10,
+    'learning_method': 'online'
+}
+lda, lda_words = nlp_feat.topics_lsa(
+    data[sents_col], decompose=LatentDirichletAllocation,
+    scaler=MaxAbsScaler, tfidf=False,
+    vect_params=vect_params, dc_params=lda_params
+    )
+plot_top_words(lda, lda_words, 20, 'Topics in LDA model')
+# %%
