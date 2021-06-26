@@ -10,6 +10,9 @@ from sklearn.pipeline import Pipeline
 from spacy.language import Language
 import spacy
 
+import logging
+logger = logging.getLogger(__name__)
+
 nlp = spacy.load('en_core_web_md')
 doc_folder = Path(__file__).resolve().parents[2] / 'docs'
 
