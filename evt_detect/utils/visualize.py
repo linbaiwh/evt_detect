@@ -2,6 +2,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+import logging
+logger = logging.getLogger(__name__)
+
 def compare_features(data, sents_col, keys, feature_func, **kwargs):
     df = feature_func(data[sents_col], **kwargs)
     features = df.select_dtypes(exclude=object).columns
@@ -75,6 +78,11 @@ def plot_search_results(grid):
                 sns.lineplot(x=f'param_{param}', y=scores[j], data=plot_cv, hue='type', ax=axes[0,i])
             except TypeError:
                 sns.violinplot(x=f'param_{param}', y=scores[j], data=plot_cv, hue='type', ax=axes[0,i], palette="Set3")
+            except ValueError:
+                plot_cv[f'param_{param}'] = plot_cv[f'param_{param}'].map(str)
+                sns.lineplot(x=f'param_{param}', y=scores[j], data=plot_cv, hue='type', ax=axes[0,i])
+            except Exception:
+                logger.exception(f'cannot plot search results for {scores[j]} {param}')
             
             axes[0, i].set_xlabel(param.upper())
 
