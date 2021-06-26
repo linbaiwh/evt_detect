@@ -5,6 +5,8 @@ from pathlib import Path
 sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import pandas as pd
+import logging
+import logging.config
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -27,18 +29,21 @@ from evt_detect.utils.visualize import plot_search_results
 models = [
     {
         'classifier': LogisticRegression,
-        'scaler': Normalizer,
-        'fselector': NMF
+        'vect_scaler': Normalizer,
+        'lsa': NMF,
+        'scaler': MaxAbsScaler
     }, # * Baseline model
     {
         'classifier': XGBClassifier,
-        'scaler': Normalizer,
-        'fselector': NMF
+        'vect_scaler': Normalizer,
+        'lsa': NMF,
+        'scaler': MaxAbsScaler
     }, # * Tree-based model
     {
         'classifier': SVC,
-        'scaler': Normalizer,
-        'fselector': NMF
+        'vect_scaler': Normalizer,
+        'lsa': NMF,
+        'scaler': MaxAbsScaler
     } # * SVC
 ]
 
@@ -76,6 +81,12 @@ model_names = [
 
 def main(form_label, y_col='Incident'):
 
+    logger_conf = Path(__file__).resolve().parents[2] / 'docs' / 'logging.conf'
+    logging.config.fileConfig(logger_conf)
+    logger = logging.getLogger('model_training')
+
+    logger.info(f'Model training for {form_label} {y_col}')
+
     # * File path
     data_folder = Path(__file__).resolve().parents[2] / 'data'
     label_folder = data_folder / 'label'
@@ -96,15 +107,17 @@ def main(form_label, y_col='Incident'):
         'features__vect__count__ngram_range': [(1,2), (1,3)],
         'features__vect__count__max_df': [0.7, 0.9, 1.0],
         'features__vect__count__min_df': [1, 2, 4],
+        'features__vect__count__max_features': [1000],
         'features__vect__tfidf__use_idf': [True],
         'features__vect__tfidf__sublinear_tf': [True],
-        'features__length__tokenizer': [tokenizer],
         
-        'fselector__n_components': [100, 200, 400, 600],
-        'fselector__alpha': [0.1],
-        'fselector__l1_ratio': [0.5]
+        'features__lsa__n_components': [100, 200, 400, 600],
+        'features__lsa__init': ['NNDSVD'],
+        'features__lsa__alpha': [0.1],
+        'features__lsa__l1_ratio': [0.5],
+        'features__lsa__max_iter': [10000],
         
-
+        'features__length__tokenizer': [tokenizer]   
     }
 
     # * Prepare traing and test data
@@ -120,7 +133,7 @@ def main(form_label, y_col='Incident'):
 
     # * Model training
     for i in range(len(models)):
-        print(f'start training {model_names[i]}')
+        logger.info(f'start training {model_names[i]}')
         model_spec = models[i]
         params = {**feat_params, **clf_params[i]}
         
@@ -130,25 +143,49 @@ def main(form_label, y_col='Incident'):
         data_train.find_best_threshold()
         data_train.model_predict()
         data_train.model_val()
+        data_train.model_sum['model_name'] = model_names[i]
+
         data_train.model_fin()
 
+        logger.info(f'{model_names[i]} finished')
+        logger.info(f'{data_train.model_sum}')
+
         # * Save model specific results
+        try:
+            gsplot = plot_search_results(gs)
+            gsplot.savefig(compare_folder / f'{form_label}_{y_col}_{model_names[i]}_gsplot.png')
+        except Exception:
+            logger.exception('Cannot save grid search results')
+        else:
+            logger.info('Grid search results saved')
 
-        gsplot = plot_search_results(gs)
-        gsplot.savefig(compare_folder / f'{form_label}_{y_col}_{model_names[i]}_gsplot.png')
-
-
-        data_train.pr_curve.savefig(compare_folder / f'{form_label}_{y_col}_{model_names[i]}_pr_curve.png')
-
-        err_pred = data_train.predict_error()
-        to_file_df(err_pred, compare_folder / f'{form_label}_{y_col}_{model_names[i]}_pred_err.xlsx')
-
-
-        data_train.model_save(model_folder / f'{form_label}_{y_col}_{model_names[i]}.joblib')
-        print(f'{model_names[i]} saved')
+        try:
+            data_train.pr_curve.savefig(compare_folder / f'{form_label}_{y_col}_{model_names[i]}_pr_curve.png')
+        except Exception:
+            logger.exception('Cannot save PR Curve')
+        else:
+            logger.info('PR Curve saved')
+        
+        try:
+            err_pred = data_train.predict_error()
+        except Exception:
+            logger.exception('Cannot create predict error')
+        else:
+            to_file_df(err_pred, compare_folder / f'{form_label}_{y_col}_{model_names[i]}_pred_err.xlsx')
+            logger.info('Predict error saved')
+        try:
+            data_train.model_save(model_folder / f'{form_label}_{y_col}_{model_names[i]}.joblib')
+        except Exception:
+            logger.exception('Cannot save best model')
+        else:
+            logger.info(f'{model_names[i]} saved')
+    
     # * Save results for all models
     models_df = data_train.models_summary()
     models_comp_file = compare_folder / f'{form_label}_{y_col}_compare.xlsx'
+    models_sum_file = model_folder / f'{form_label}_{y_col}_spec.xlsx'
+
+    to_file_df(models_df, models_sum_file)
 
     if models_comp_file.exists():
         models_pre = read_file_df(models_comp_file)
