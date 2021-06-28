@@ -1,24 +1,19 @@
-import sys
-import os
-from pathlib import Path
-sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
+import logging
+import logging.config
+import warnings
 import pandas as pd
 from joblib import load
 import multiprocessing
 from multiprocessing import Pool
 from functools import partial
-
-import logging
-import logging.config
-
-import warnings
-warnings.filterwarnings("ignore")
-
+from steps_context import tag, label_folder, model_folder, compare_folder, logger_conf
 from evt_detect.utils.file_io import read_file_df, to_file_df, merge_csv
 from evt_detect.features import nlp_features as nlp_feat
 from evt_detect.models.model_build import model_pred
 from evt_detect.utils.preprocess import find_formtypes
+
+warnings.filterwarnings("ignore")
+
 
 def file_model_pred(csv_in, csv_out, X_col, y_col, model_name, model, threshold):
     df = read_file_df(csv_in)

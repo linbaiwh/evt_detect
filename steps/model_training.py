@@ -1,37 +1,29 @@
-#%%
-import sys
-import os
-from pathlib import Path
-sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-import pandas as pd
 import logging
 import logging.config
-
+import pandas as pd
 import warnings
-warnings.filterwarnings("ignore")
-
 from sklearn.preprocessing import StandardScaler, MaxAbsScaler, Normalizer
 from sklearn.decomposition import TruncatedSVD, NMF
 from sklearn.feature_selection import SelectKBest, f_classif, chi2, mutual_info_classif
-
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
 from sklearn.svm import SVC
 
+from steps_context import tag, label_folder, model_folder, compare_folder, logger_conf
 from evt_detect.utils.file_io import read_file_df, to_file_df, merge_csv
 from evt_detect.models.model_build import model_prep, model_eval
 from evt_detect.features import nlp_features as nlp_feat
 from evt_detect.utils.visualize import plot_search_results
 
+
+warnings.filterwarnings("ignore")
+
 # * Models
 models = [
     {
         'classifier': LogisticRegression,
-        'vect_scaler': Normalizer,
-        'lsa': NMF,
-        'scaler': MaxAbsScaler
+        'scaler': MaxAbsScaler,
+        'fselector': TruncatedSVD
     }, # * Baseline model
     {
         'classifier': XGBClassifier,
@@ -50,10 +42,14 @@ models = [
 # * Classifier Hyperparameters
 clf_params = [
     {
-        'classifier__C': [0.4],  
+        'classifier__C': [0.33, 0.4],  
         'classifier__penalty': ['l2'],  
         'classifier__solver': ['lbfgs'],  
-        'classifier__class_weight': ['balanced']  
+        'classifier__class_weight': ['balanced'],
+
+        'features__vect__count__min_df': [2],
+
+        'fselector__n_components': [400]    
     }, # * Baseline model
     {
         'classifier__n_estimators': [300],  
@@ -62,14 +58,23 @@ clf_params = [
         'classifier__gamma': [0],  
         'classifier__subsample': [0.8],  
         'classifier__colsample_bytree': [0.8],  
-        'classifier__scale_pos_weight': [1] 
+        'classifier__scale_pos_weight': [1], 
+        'classifier__use_label_encoder=False': [False], 
+
+        'features__vect__count__min_df': [4],
+
+        'features__vect__count__max_features': [1000]
     }, # * Tree-based model
     {
         'classifier__kernel': ['rbf'],  
         'classifier__C': [4.5],  
         'classifier__gamma': ['scale'],  
         'classifier__probability': [True],  
-        'classifier__class_weight': ['balanced']  
+        'classifier__class_weight': ['balanced'],
+        
+        'features__vect__count__min_df': [2],
+
+        'features__vect__count__max_features': [1000]
     } # * SVC
 ]
 
@@ -81,18 +86,10 @@ model_names = [
 
 def main(form_label, y_col='Incident'):
 
-    logger_conf = Path(__file__).resolve().parents[2] / 'docs' / 'logging.conf'
     logging.config.fileConfig(logger_conf)
     logger = logging.getLogger('model_training')
 
     logger.info(f'Model training for {form_label} {y_col}')
-
-    # * File path
-    data_folder = Path(__file__).resolve().parents[2] / 'data'
-    label_folder = data_folder / 'label'
-    compare_folder = data_folder / 'compare'
-    model_folder = data_folder / 'model'
-    tag = 'breach'
 
     # * Feature Hyperparameters
     if form_label == 'CR':
@@ -104,20 +101,17 @@ def main(form_label, y_col='Incident'):
     feat_params = {
         'features__vect__count__lowercase': [False],
         'features__vect__count__tokenizer': [tokenizer],
-        'features__vect__count__ngram_range': [(1,2), (1,3)],
-        'features__vect__count__max_df': [0.7, 0.9, 1.0],
-        'features__vect__count__min_df': [1, 2, 4],
-        'features__vect__count__max_features': [1000],
+        'features__vect__count__ngram_range': [(1,2)],
+        'features__vect__count__max_df': [0.7],
         'features__vect__tfidf__use_idf': [True],
         'features__vect__tfidf__sublinear_tf': [True],
         
-        'features__lsa__n_components': [100, 200, 400, 600],
-        'features__lsa__init': ['NNDSVD'],
-        'features__lsa__alpha': [0.1],
-        'features__lsa__l1_ratio': [0.5],
-        'features__lsa__max_iter': [10000],
+        'features__vect__lsa__init': ['nndsvd'],
+        'features__vect__lsa__alpha': [0, 0.1],
+        'features__vect__lsa__l1_ratio': [0.5],
+        'features__vect__lsa__max_iter': [10000],
         
-        'features__length__tokenizer': [tokenizer]   
+        'features__length__tokenizer': [tokenizer] 
     }
 
     # * Prepare traing and test data

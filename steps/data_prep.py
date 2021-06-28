@@ -1,24 +1,10 @@
 #%%
-import sys
-import os
-from pathlib import Path
-sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-import importlib
-
+# import steps_context
+from steps_context import topfolder, tag, label_folder, input_folder
 #%%
-import evt_detect
-importlib.reload(evt_detect)
-
 from evt_detect.utils import preprocess as prep
-from evt_detect.utils.file_io import to_file_df
+from evt_detect.utils.file_io import to_file_df, read_file_df
 
-#%%
-# folder environment setup
-topfolder = Path(r'E:\SEC filing')
-tag = 'breach'
-data_folder = Path(__file__).resolve().parents[2] / 'data'
-input_folder = data_folder / 'input'
-label_folder = data_folder / 'label'
 
 #%%
 # * Form types classification
@@ -26,8 +12,8 @@ CR_types = ['6-K', '8-K']
 PR_types = ['10-Q', '10-K', '20-F', '40-F'] + ['DRS', 'S-1', 'S-3', 'S-4', 'F-1', 'F-10', 'F-3']
 
 #%%
-# form_types = CR_types
-# form_label = 'CR'
+form_types = CR_types
+form_label = 'CR'
 
 #%%
 form_types = PR_types
@@ -48,3 +34,12 @@ sents = prep.sents_shuffled(parags, nsents=4)
 #%%
 # * Generate file of sentences for mannual check
 to_file_df(sents, sents_save)
+
+#%%
+# * Prepare unlabeled sentences fron previously labeled file
+df = read_file_df(label_folder / 'whole_ALL_2_mc.xlsx')
+sents = prep.unlabeled_sents(df, form_types)
+
+#%%
+sents_save_unlabel = label_folder / f'{tag}_{form_label}_sents_unlabel.xlsx'
+to_file_df(sents, sents_save_unlabel)

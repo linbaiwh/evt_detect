@@ -1,24 +1,12 @@
 #%%
-import sys
-import os
-from pathlib import Path
-sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-from sklearn.preprocessing import Normalizer, StandardScaler, MaxAbsScaler, RobustScaler
+from sklearn.preprocessing import Normalizer, MaxAbsScaler
 from sklearn.decomposition import TruncatedSVD, NMF, LatentDirichletAllocation
 
 #%%
-import evt_detect
-
-from evt_detect.utils.file_io import read_file_df, to_file_df, merge_csv
+from steps_context import tag, label_folder, feature_folder
+from evt_detect.utils.file_io import to_file_df, merge_csv
 from evt_detect.utils.visualize import compare_features, plot_top_words
 from evt_detect.features import nlp_features as nlp_feat
-
-#%%
-data_folder = Path(__file__).resolve().parents[2] / 'data'
-label_folder = data_folder / 'label'
-feature_folder = data_folder / 'feature'
-tag = 'breach'
 
 #%%
 form_label = 'CR'
