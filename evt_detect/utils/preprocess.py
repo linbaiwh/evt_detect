@@ -141,11 +141,28 @@ def sents_shuffled(df_p, nsents=2, textcol='filtered_text'):
 
     sents = df['sents'].explode().reset_index()
     sents = sents.dropna(subset=['sents']).drop_duplicates()
+    
+    if nsents is not None:
+        shuffled = sents.sample(frac=1, random_state=42).groupby('cik').head(nsents)
+    else:
+        shuffled = sents
 
-    shuffled = sents.sample(frac=1, random_state=42).groupby('cik').head(nsents)
     shuffled = shuffled.sort_values(by='cik')
 
     # add classification outcome variables for mannual fill
     shuffled = shuffled.assign(Incident='', Immaterial='', Cost='', Litigation='', Management='')
 
     return shuffled
+
+# add more example senteces from previous labeled file
+def unlabeled_sents(df, form_types):
+    keep_cols = ['cik', 'filtered_text']
+    df = df.loc[df['form_type'].map(lambda form: form in form_types)]
+    df = df.loc[df['sents'].notna() == False]
+    Incident_df = df.loc[df['Incident'] == 1, keep_cols]
+    Immaterial_df = df.loc[df['Immaterial'] == 1, keep_cols]
+    df_p = pd.concat([Incident_df, Immaterial_df], ignore_index=True)
+    return sents_shuffled(df_p, nsents=None)
+
+
+
