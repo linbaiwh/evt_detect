@@ -1,24 +1,35 @@
+import logging
 import numpy as np
 import pandas as pd
 import joblib
 import matplotlib.pyplot as plt
 
 from sklearn.feature_extraction.text import TfidfTransformer, CountVectorizer
+from sklearn.semi_supervised import SelfTrainingClassifier
 
 from sklearn.pipeline import Pipeline, FeatureUnion
 from imblearn.pipeline import Pipeline as Pipeline_im
 
 from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.metrics import make_scorer, average_precision_score, roc_auc_score, precision_score, recall_score, precision_recall_curve, f1_score
+from sklearn.metrics import average_precision_score, roc_auc_score, precision_score, recall_score, precision_recall_curve, f1_score
 
 from evt_detect.models.trfs import trf_length, trf_pos, trf_sentiment
 
+logger = logging.getLogger(__name__)
 
-def model_prep(classifier, scaler=None, fselector=None, oversampler=None, undersampler=None):
-    vect = Pipeline([
+def model_prep(classifier, vect_scaler=None, lsa=None, scaler=None, fselector=None, oversampler=None, undersampler=None):
+    vect_steps = [
         ('count', CountVectorizer()),
         ('tfidf', TfidfTransformer())
-    ])
+    ]
+
+    if vect_scaler is not None:
+        vect_steps.append(('scaler', vect_scaler()))
+    
+    if lsa is not None:
+        vect_steps.append(('lsa', lsa()))
+
+    vect = Pipeline(vect_steps)
 
     features = FeatureUnion([
         ('vect', vect),
@@ -31,7 +42,7 @@ def model_prep(classifier, scaler=None, fselector=None, oversampler=None, unders
 
     if scaler is not None:
         steps.append(('scaler', scaler()))
-    
+
     if fselector is not None:
         steps.append(('fselector', fselector()))
 
@@ -59,6 +70,15 @@ class model_eval():
         }
         self.model_sum = {}
         self.model_compare = []
+        self.X_train = None
+        self.X_test = None
+        self.y_train = None
+        self.y_test = None
+        self.model = None
+        self.threshold = 0.5
+        self.pr_curve = None
+        self.y_train_pred = None
+        self.y_test_pred = None
 
     def gen_train_test_set(self, test_size=0.2):
         X = self.data[self.x_col]
@@ -166,9 +186,54 @@ class model_eval():
     def model_save(self, save_file):
         joblib.dump(self.model, save_file)
 
+
     def model_fin(self):
         self.model_compare.append(self.model_sum)
 
     def models_summary(self):
         return pd.DataFrame(self.model_compare)
 
+def model_pred(X, model, threshold):
+    try:
+        y_proba = model.predict_proba(X)[:,1]
+    except:
+        y_proba = model.decision_function(X)
+
+    y_pred = (y_proba > threshold).astype(int)
+    return [x for (x, pred) in zip(X, y_pred) if pred == 1]
+
+class semi_training(model_eval):
+    def __init__(self, labeled, unlabeled, y_col, x_col='sents'):
+        super().__init__(labeled, y_col, x_col)
+        self.unlabeled = unlabeled
+
+    def prepare_unlabeled_set(self):
+        X = self.unlabeled[self.x_col]
+        y = self.unlabeled[self.y_col]
+        y.fillna(-1, inplace=True)
+
+        self.X_all = pd.concat([self.X_train, X], ignore_index=True)
+        self.y_all = pd.concat([self.y_train, y], ignore_index=True)
+
+        return self
+
+    def self_training(self, model, threshold=0.95):
+        self.model = model[:-1]
+        self.model.steps.append(('clf', SelfTrainingClassifier(model[-1], threshold=threshold)))
+        self.model.fit(self.X_all, self.y_all)
+
+        self.threshold = threshold
+        self.df = pd.DataFrame({
+            self.x_col: self.X_all,
+            self.y_col: self.y_all,
+            'pseudo_label': self.model[-1].transduction_
+        })
+
+        return self
+
+    def self_training_result(self):
+        return self.df.loc[(self.df[self.y_col] != -1) | (self.df['pseudo_label'] != -1)]
+
+    def self_training_check(self):
+        return self.df.loc[self.df[self.y_col] != self.df['pseudo_label']]
+        
