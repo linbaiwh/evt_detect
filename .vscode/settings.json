@@ -8,4 +8,10 @@
     "python.testing.nosetestsEnabled": false,
     "python.testing.pytestEnabled": true,
     // "python.pythonPath": "C:\\Users\\linbai\\anaconda3\\python.exe"
+    "python.linting.pylintArgs": [
+        "--init-hook",
+        "import sys; sys.path.insert(0, './steps')",
+        "--disable=all",
+        "--enable=F,E,unreachable,duplicate-key,unnecessary-semicolon,global-variable-not-assigned,unused-variable,binary-op-exception,bad-format-string,anomalous-backslash-in-string,bad-open-mode"
+    ]
 }
