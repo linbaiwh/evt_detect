@@ -416,8 +416,8 @@ def topics_lsa(X, decompose=TruncatedSVD, scaler=Normalizer, tfidf=True, vect_pa
     
     steps.append(('decompose', decompose(**dc_params)))
     pipe = Pipeline(steps).fit(X)
-    feature_names = pipe['vect'].get_feature_names()
+    feature_names = pipe.named_steps.vect.get_feature_names()
 
-    return pipe['decompose'], feature_names 
+    return pipe.named_steps.decompose, feature_names 
 
     
