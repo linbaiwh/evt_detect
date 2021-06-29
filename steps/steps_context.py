@@ -11,5 +11,6 @@ label_folder = data_folder / 'label'
 model_folder = data_folder / 'model'
 compare_folder = data_folder / 'compare'
 feature_folder = data_folder / 'feature'
+result_folder = data_folder / 'result'
 
 logger_conf = Path(__file__).resolve().parents[1] / 'docs' / 'logging.conf'
