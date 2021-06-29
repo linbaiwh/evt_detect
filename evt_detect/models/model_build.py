@@ -97,6 +97,7 @@ class model_eval():
         gs = GridSearchCV(model, params, n_jobs=-1, scoring=self.scores, cv=3, return_train_score=True, refit=refit_score)
         gs.fit(self.X_train, self.y_train)
 
+        logger.info('GridSearch Finished')
         self.model = gs.best_estimator_
 
         self.model_sum = {**model_spec, **gs.best_params_}
@@ -116,8 +117,10 @@ class model_eval():
         idx = np.argmax(f1s)
         self.threshold = thresholds[idx]
         self.model_sum['threshold'] = self.threshold
+        logger.info('best threshold found')
 
         self.pr_curve = self.plot_best_threshold(precisions, recalls, idx)
+        logger.info('PR Curve created')
 
         return self
 
@@ -139,12 +142,24 @@ class model_eval():
             y_train_score = self.model.predict_proba(self.X_train)[:,1]
             y_test_score = self.model.predict_proba(self.X_test)[:,1]
         except:
-            y_train_score = self.model.decision_function(self.X_train)
-            y_test_score = self.model.decision_function(self.X_test)
-        
-        self.y_train_pred = (y_train_score > self.threshold).astype(int)
-        self.y_test_pred = (y_test_score > self.threshold).astype(int)
+            logger.exception('Cannot call predict_proba')
+            
+            try:
+                y_train_score = self.model.decision_function(self.X_train)
+                y_test_score = self.model.decision_function(self.X_test)
+            except:
+                logger.exception('Cannot call decision_function')
+                
+        try:
+            self.y_train_pred = (y_train_score > self.threshold).astype(int)
+            self.y_test_pred = (y_test_score > self.threshold).astype(int)
+        except:
+            logger.exception('Cannot use threshold to generate prediction')
+            self.y_train_pred = self.model.predict(self.X_train)
+            self.y_test_pred = self.model.predict(self.X_test)
 
+        logger.info('Model prediction generated')
+        
         model_scores = {
             'train_pr_auc': average_precision_score(self.y_train, y_train_score),
             'test_pr_auc': average_precision_score(self.y_test, y_test_score),
@@ -228,12 +243,17 @@ class semi_training(model_eval):
             self.y_col: self.y_all,
             'pseudo_label': self.model[-1].transduction_
         })
+        logger.info(f'The number of rounds of self-training is {self.model[-1].n_iter_}')
 
         return self
 
     def self_training_result(self):
-        return self.df.loc[(self.df[self.y_col] != -1) | (self.df['pseudo_label'] != -1)]
+        results = self.df.loc[(self.df[self.y_col] != -1) | (self.df['pseudo_label'] != -1), [self.x_col, 'pseudo_label']]
+        results.rename(columns={'pseudo_label': self.y_col}, inplace=True)
+        return results
 
     def self_training_check(self):
         return self.df.loc[self.df[self.y_col] != self.df['pseudo_label']]
         
+    def self_training_noresult(self):
+        return self.df.loc[self.df['pseudo_label'] == -1]
