@@ -6,7 +6,7 @@ from joblib import load
 import multiprocessing
 from multiprocessing import Pool
 from functools import partial
-from steps_context import tag, label_folder, model_folder, compare_folder, logger_conf
+from steps_context import topfolder, tag, label_folder, model_folder, result_folder, logger_conf
 from evt_detect.utils.file_io import read_file_df, to_file_df, merge_csv
 from evt_detect.features import nlp_features as nlp_feat
 from evt_detect.models.model_build import model_pred
@@ -32,18 +32,10 @@ def file_model_pred(csv_in, csv_out, X_col, y_col, model_name, model, threshold)
 
 def main(form_label, y_col, model_name):
 
-    logger_conf = Path(__file__).resolve().parents[2] / 'docs' / 'logging.conf'
     logging.config.fileConfig(logger_conf)
     logger = logging.getLogger('model_predict')
 
     logger.info(f'Model predict for {form_label} using {model_name}')
-
-    # file location
-    topfolder = Path(r'E:\SEC filing')
-    tag = 'breach'
-    data_folder = Path(__file__).resolve().parents[2] / 'data'
-    model_folder = data_folder / 'model'
-    result_folder = data_folder / 'result'
 
     # * Preparing model
     model = load(model_folder / f'{form_label}_{y_col}_{model_name}.joblib')
