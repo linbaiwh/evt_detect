@@ -9,7 +9,7 @@ from evt_detect.models.model_build import semi_training
 warnings.filterwarnings("ignore")
 
 
-def main(form_label, y_col, model_name):
+def main(form_label, y_col, model_name, threshold=0.95):
 
     logging.config.fileConfig(logger_conf)
     logger = logging.getLogger('model_self_train')
@@ -37,17 +37,22 @@ def main(form_label, y_col, model_name):
     data.prepare_unlabeled_set()
 
     # * self training
-    data.self_training(model, threshold=0.95)
+    data.self_training(model, threshold=threshold)
 
     # * self training results
     new_labeled = data.self_training_result()
-    to_file_df(new_labeled, label_folder / f'{form_label}_{y_col}_{model_name}_label_propagated.xlsx')
+    to_file_df(new_labeled, label_folder / f'{form_label}_{y_col}_label_propagated.xlsx')
     logger.info('self training results saved')
 
     # * self training check
     label_chg = data.self_training_check()
     to_file_df(label_chg, compare_folder / f'{form_label}_{y_col}_{model_name}_label_chg.xlsx')
     logger.info('self training changed label saved')
+
+    # * self training no result
+    label_noresult = data.self_training_noresult()
+    to_file_df(label_noresult, compare_folder / f'{form_label}_{y_col}_{model_name}_label_nr.xlsx')
+    logger.info('self training no result saved')
 
     # * new model performance
     data.find_best_threshold()
@@ -59,4 +64,6 @@ def main(form_label, y_col, model_name):
 
 
 if __name__ == "__main__":
-    main('CR', 'Incident', 'Baseline')
+    # main('CR', 'Incident', 'Baseline')
+    # main('PR', 'Incident', 'Baseline', threshold=0.99)
+    main('PR', 'Immaterial', 'Baseline', threshold=0.99)
