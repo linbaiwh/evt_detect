@@ -3,7 +3,7 @@ import logging.config
 import pandas as pd
 import warnings
 from sklearn.preprocessing import StandardScaler, MaxAbsScaler, Normalizer
-from sklearn.decomposition import TruncatedSVD, NMF
+from sklearn.decomposition import TruncatedSVD, LatentDirichletAllocation
 from sklearn.feature_selection import SelectKBest, f_classif, chi2, mutual_info_classif
 from sklearn.linear_model import LogisticRegression
 from xgboost import XGBClassifier
@@ -24,19 +24,18 @@ models = [
         'classifier': LogisticRegression,
         'scaler': MaxAbsScaler,
         'fselector': TruncatedSVD
-    }, # * Baseline model
+    }#, # * Baseline model
     # {
     #     'classifier': XGBClassifier,
     #     'vect_scaler': Normalizer,
     #     'lsa': NMF,
     #     'scaler': MaxAbsScaler
     # }, # * Tree-based model
-    {
-        'classifier': SVC,
-        'vect_scaler': Normalizer,
-        'lsa': NMF,
-        'scaler': MaxAbsScaler
-    } # * SVC
+    # {
+    #     'classifier': SVC,
+    #     'scaler': MaxAbsScaler,
+    #     'fselector': LatentDirichletAllocation
+    # } # * SVC
 ]
 
 # * Classifier Hyperparameters
@@ -49,7 +48,7 @@ clf_params = [
 
 
         'fselector__n_components': [400, 600, 800, 1000]    
-    }, # * Baseline model
+    }#, # * Baseline model
     # {
     #     'classifier__n_estimators': [300],  
     #     'classifier__max_depth': [5],  
@@ -64,26 +63,30 @@ clf_params = [
 
     #     'features__vect__count__max_features': [1000]
     # }, # * Tree-based model
-    {
-        'classifier__kernel': ['rbf'],  
-        'classifier__C': [1],  
-        'classifier__gamma': ['scale'],  
-        'classifier__probability': [True],  
-        'classifier__class_weight': ['balanced'],
+    # {
+    #     'classifier__kernel': ['rbf'],  
+    #     'classifier__C': [1],  
+    #     'classifier__gamma': ['scale'],  
+    #     'classifier__probability': [True],  
+    #     'classifier__class_weight': ['balanced'],
         
-        'features__vect__count__max_features': [1200],
+    #     'features__vect__count__max_features': [1200],
 
-        'features__vect__lsa__init': ['nndsvd'],
-        'features__vect__lsa__alpha': [0.01, 0.1, 1, 4, 10],
-        'features__vect__lsa__l1_ratio': [0, 0.5, 1],
-        'features__vect__lsa__max_iter': [10000]
-    } # * SVC
+    #     'fselector__n_components': [400, 600, 800, 1000],
+    #     'fselector__learning_method': ['online'] 
+
+
+    #     # 'features__vect__lsa__init': ['nndsvd'],
+    #     # 'features__vect__lsa__alpha': [0.01, 0.1, 1, 4, 10],
+    #     # 'features__vect__lsa__l1_ratio': [0, 0.5, 1],
+    #     # 'features__vect__lsa__max_iter': [10000]
+    # } # * SVC
 ]
 
 model_names = [
-    'Baseline',
+    'Baseline'#,
     # 'Tree',
-    'SVC'
+    # 'SVC'
 ]
 
 def main(form_label, y_col='Incident', propagation=False):
@@ -135,7 +138,7 @@ def main(form_label, y_col='Incident', propagation=False):
         params = {**feat_params, **clf_params[i]}
         
         pipe = model_prep(**model_spec)
-        gs = data_train.model_tuning(pipe, params)
+        gs = data_train.model_tuning(pipe, params, refit_score='roc_auc')
 
         data_train.find_best_threshold()
         data_train.model_predict()
@@ -195,4 +198,5 @@ if __name__ == "__main__":
     # main('CR', 'Incident')
     main('CR', 'Incident', propagation=True)
     # main('PR', 'Incident')
+    main('PR', 'Incident', propagation=True)
     # main('PR', 'Immaterial')
