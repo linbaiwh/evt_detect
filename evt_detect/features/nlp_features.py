@@ -115,10 +115,15 @@ def normalize_text(text):
     Returns:
         string: text after removing excessive characters
     """
-    text = text.replace('\n',' ')
-    text = text.replace(r'\99',' ')
-    text = ' '.join(text.split())
-    return text
+    try:
+        text = text.replace('\n',' ')
+        text = text.replace(r'\99',' ')
+        text = ' '.join(text.split())
+    except AttributeError:
+        logger.error('text is not string')
+        return str(text)
+    else:
+        return text
 
 
 def gen_sents(text):
