@@ -1,5 +1,8 @@
 import logging
 import pandas as pd
+import numpy as np
+from functools import partial
+from multiprocessing.dummy import Pool
 
 logger = logging.getLogger(__name__)
 
@@ -47,4 +50,15 @@ def merge_csv(csv_list, outcsv=False, readkwargs={}, mergekwargs={'ignore_index'
         to_file_df(merged_df, outcsv)
     
     return merged_df
-    
+
+def parallelize_df(df, func, n_chunks=8, **kwargs):
+    df_split = np.array_split(df, n_chunks)
+    mapfunc = partial(func, **kwargs)
+    try:
+        with Pool(n_chunks) as pool:
+            results = pool.map(mapfunc,df_split)
+    except:
+        logger.exception("Uncaught exception for parallelize_df")
+        return None
+    else:
+        return pd.concat(results)

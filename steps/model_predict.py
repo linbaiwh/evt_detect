@@ -5,29 +5,13 @@ import pandas as pd
 from joblib import load
 import multiprocessing
 from multiprocessing import Pool
-from functools import partial
 from steps_context import topfolder, tag, label_folder, model_folder, result_folder, logger_conf
-from evt_detect.utils.file_io import read_file_df, to_file_df, merge_csv
-from evt_detect.features import nlp_features as nlp_feat
-from evt_detect.models.model_build import model_pred
+from evt_detect.utils.file_io import read_file_df, to_file_df, merge_csv, parallelize_df
+from evt_detect.models.model_build import df_model_pred
 from evt_detect.utils.preprocess import find_formtypes
 
 warnings.filterwarnings("ignore")
 
-
-def file_model_pred(csv_in, csv_out, X_col, y_col, model_name, model, threshold):
-    df = read_file_df(csv_in)
-    sents = df[X_col].map(nlp_feat.gen_sents)
-    pos_sents = sents.apply(model_pred, model=model, threshold=threshold)
-
-    df[f'{y_col}_{model_name}_sents_num'] = pos_sents.map(len)
-    df[f'{y_col}_{model_name}_sents'] = pos_sents.map(lambda s: " \n ".join(s))
-    df[f'{y_col}_{model_name}_pred'] = pos_sents.map(lambda s: 1 if len(s) > 0 else 0)
-    
-    df = df.loc[df[f'{y_col}_{model_name}_pred'] == 1]
-    to_file_df(df, csv_out)
-
-    return csv_out
 
 
 def main(form_label, y_col, model_name):
@@ -40,7 +24,7 @@ def main(form_label, y_col, model_name):
     # * Preparing model
     model = load(model_folder / f'{form_label}_{y_col}_{model_name}.joblib')
     model_sum_df = read_file_df(model_folder / f'{form_label}_{y_col}_spec.xlsx')
-    threshold = model_sum_df.loc[model_sum_df['model_name']==model_name, 'threshold'][0]
+    threshold = model_sum_df.loc[model_sum_df['model_name']==model_name, 'threshold'].squeeze()
 
     # * Preparing files
     # Form types classification
@@ -54,14 +38,17 @@ def main(form_label, y_col, model_name):
 
     csv_ins, csv_outs = find_formtypes(form_types, topfolder, tag=tag)
 
-    num_cores = multiprocessing.cpu_count()
+    for i in range(len(csv_ins)):
+        df = read_file_df(csv_ins[i])
+        df.dropna(subset=['filtered_text'], inplace=True)
+        logger.info(f'start predicting {csv_ins[i].name}')
 
-    map_file_pred = partial(file_model_pred, 
-    X_col='filtered_text', y_col=y_col, 
-    model_name=model_name, model=model, threshold=threshold)
+        result_df = parallelize_df(df, df_model_pred, n_chunks=16,
+            X_col='filtered_text', y_col=y_col, 
+            model_name=model_name, model=model, threshold=threshold)
 
-    with Pool(num_cores) as pool:
-        csv_outs = pool.map(map_file_pred, zip(csv_ins, csv_outs))
+        logger.info(f'finish predicting {csv_ins[i].name}')
+        to_file_df(result_df, csv_outs[i])
 
     result_df = merge_csv(csv_outs)
 

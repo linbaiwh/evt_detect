@@ -14,6 +14,7 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import average_precision_score, roc_auc_score, precision_score, recall_score, precision_recall_curve, f1_score
 
 from evt_detect.models.trfs import trf_length, trf_pos, trf_sentiment
+import evt_detect.features.nlp_features as nlp_feat
 
 logger = logging.getLogger(__name__)
 
@@ -212,10 +213,25 @@ def model_pred(X, model, threshold):
     try:
         y_proba = model.predict_proba(X)[:,1]
     except:
-        y_proba = model.decision_function(X)
-
-    y_pred = (y_proba > threshold).astype(int)
+        logger.exception('Cannot call predict_proba')
+        y_pred = model.predict(X)
+    else:
+        y_pred = (y_proba > threshold).astype(int)
     return [x for (x, pred) in zip(X, y_pred) if pred == 1]
+
+
+def df_model_pred(df, X_col, y_col, model_name, model, threshold):
+    sents = df[X_col].map(nlp_feat.gen_sents)
+    pos_sents = sents.apply(model_pred, model=model, threshold=threshold)
+
+    df[f'{y_col}_{model_name}_sents_num'] = pos_sents.map(len)
+    df[f'{y_col}_{model_name}_sents'] = pos_sents.map(lambda s: " \n ".join(s))
+    df[f'{y_col}_{model_name}_pred'] = pos_sents.map(lambda s: 1 if len(s) > 0 else 0)
+    
+    df = df.loc[df[f'{y_col}_{model_name}_pred'] == 1]
+    logger.info(f'found {df.shape[0]} filing with {y_col}')
+
+    return df
 
 class semi_training(model_eval):
     def __init__(self, labeled, unlabeled, y_col, x_col='sents'):
