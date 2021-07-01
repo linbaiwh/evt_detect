@@ -11,7 +11,7 @@ from sklearn.pipeline import Pipeline, FeatureUnion
 from imblearn.pipeline import Pipeline as Pipeline_im
 
 from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.metrics import average_precision_score, roc_auc_score, precision_score, recall_score, precision_recall_curve, f1_score
+from sklearn.metrics import average_precision_score, roc_auc_score, precision_score, recall_score, precision_recall_curve, f1_score, roc_curve
 
 from evt_detect.models.trfs import trf_length, trf_pos, trf_sentiment
 import evt_detect.features.nlp_features as nlp_feat
@@ -80,6 +80,7 @@ class model_eval():
         self.pr_curve = None
         self.y_train_pred = None
         self.y_test_pred = None
+        self.refit_score = None
 
     def gen_train_test_set(self, test_size=0.2):
         X = self.data[self.x_col]
@@ -103,6 +104,7 @@ class model_eval():
 
         self.model_sum = {**model_spec, **gs.best_params_}
         self.model_sum[f'valid_{refit_score}'] = gs.best_score_
+        self.refit_score = refit_score
 
         return gs
 
@@ -113,28 +115,48 @@ class model_eval():
         except:
             y_score = self.model.decision_function(self.X_train)
 
-        precisions, recalls, thresholds = precision_recall_curve(self.y_train, y_score)
-        f1s = [2*p*r/(p+r) for p, r in zip(precisions, recalls)]
-        idx = np.argmax(f1s)
+        if self.refit_score == 'pr_auc':
+            precisions, recalls, thresholds = precision_recall_curve(self.y_train, y_score)
+            f1s = [2*p*r/(p+r) for p, r in zip(precisions, recalls)]
+            idx = np.argmax(f1s)
+
+            self.threshold_curve = self.plot_best_threshold(recalls, precisions, idx)
+            logger.info('PR Curve created')
+
+        elif self.refit_score == 'roc_auc':
+            fpr, tpr, thresholds = roc_curve(self.y_train, y_score)
+            g_means = np.sqrt(tpr * (1-fpr))
+            idx = np.argmax(g_means)
+
+            self.threshold_curve = self.plot_best_threshold(fpr, tpr, idx)
+            logger.info('ROC created')
+
         self.threshold = thresholds[idx]
         self.model_sum['threshold'] = self.threshold
         logger.info('best threshold found')
 
-        self.pr_curve = self.plot_best_threshold(precisions, recalls, idx)
-        logger.info('PR Curve created')
-
         return self
 
-    def plot_best_threshold(self, precisions, recalls, best_idx):
-        no_skill = len(self.y_train[self.y_train==1]) / len(self.y_train)
+    def plot_best_threshold(self, x_values, y_values, best_idx):
         fig = plt.figure(figsize=(6, 4))
-        ax = fig.add_subplot()
-        ax.plot([0,1], [no_skill,no_skill], linestyle='--', label='No Skill')
-        ax.plot(recalls, precisions, marker='.')
-        ax.scatter(recalls[best_idx], precisions[best_idx], marker='o', color='black', label='Best')
-        # axis labels
-        ax.set_xlabel('Recall')
-        ax.set_ylabel('Precision')
+        if self.refit_score == 'pr_auc':
+            no_skill = len(self.y_train[self.y_train==1]) / len(self.y_train)
+            ax = fig.add_subplot()
+            ax.plot([0,1], [no_skill,no_skill], linestyle='--', label='No Skill')
+            ax.plot(x_values, y_values, marker='.')
+            ax.scatter(x_values[best_idx], y_values[best_idx], marker='o', color='black', label='Best')
+            # axis labels
+            ax.set_xlabel('Recall')
+            ax.set_ylabel('Precision')
+
+        elif self.refit_score == 'roc_auc':
+            plt.plot([0,1], [0,1], linestyle='--', label='No Skill')
+            plt.plot(x_values, y_values, marker='.')
+            plt.scatter(x_values[best_idx], y_values[best_idx], marker='o', color='black', label='Best')
+            # axis labels
+            plt.xlabel('False Positive Rate')
+            plt.ylabel('True Positive Rate')
+
         plt.legend()
         return fig
 
@@ -209,29 +231,49 @@ class model_eval():
     def models_summary(self):
         return pd.DataFrame(self.model_compare)
 
-def model_pred(X, model, threshold):
-    try:
-        y_proba = model.predict_proba(X)[:,1]
-    except:
-        logger.exception('Cannot call predict_proba')
-        y_pred = model.predict(X)
+def model_pred(X, model, threshold, tokenizer):
+    while len(X) > 0:
+        try:
+            y_proba = model.predict_proba(X)[:,1]
+        except ValueError:
+            logger.exception('The input paragraph is problematic')
+            logger.error(X)
+            X = [text for text in X if len(tokenizer(text)) > 0]
+        except:
+            logger.exception('Cannot call predict_proba')
+            try:
+                y_pred = model.predict(X)
+            except ValueError:
+                logger.exception('The input paragraph is problematic')
+                logger.error(X)
+                X = [text for text in X if len(tokenizer(text)) > 0]
+            except:
+                logger.exception('Cannot call predict')
+                return []
+        else:
+            y_pred = (y_proba > threshold).astype(int)
+            return [x for (x, pred) in zip(X, y_pred) if pred == 1]
     else:
-        y_pred = (y_proba > threshold).astype(int)
-    return [x for (x, pred) in zip(X, y_pred) if pred == 1]
+        return []
 
 
-def df_model_pred(df, X_col, y_col, model_name, model, threshold):
+def df_model_pred(df, X_col, y_col, model_name, model, threshold, tokenizer):
+    df.reset_index(drop=True, inplace=True)
     sents = df[X_col].map(nlp_feat.gen_sents)
-    pos_sents = sents.apply(model_pred, model=model, threshold=threshold)
+    pos_sents = sents.apply(model_pred, model=model, threshold=threshold, tokenizer=tokenizer)
 
     df[f'{y_col}_{model_name}_sents_num'] = pos_sents.map(len)
     df[f'{y_col}_{model_name}_sents'] = pos_sents.map(lambda s: " \n ".join(s))
     df[f'{y_col}_{model_name}_pred'] = pos_sents.map(lambda s: 1 if len(s) > 0 else 0)
     
-    df = df.loc[df[f'{y_col}_{model_name}_pred'] == 1]
-    logger.info(f'found {df.shape[0]} filing with {y_col}')
+    result = df.loc[df[f'{y_col}_{model_name}_pred'] == 1]
+    logger.info(f'found {result.shape[0]} filing with {y_col}')
 
-    return df
+    try:
+        return result
+    except:
+        logger.exception('Cannot generate prediction for DataFrame')
+        return pd.DataFrame()
 
 class semi_training(model_eval):
     def __init__(self, labeled, unlabeled, y_col, x_col='sents'):

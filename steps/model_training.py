@@ -160,7 +160,7 @@ def main(form_label, y_col='Incident', propagation=False):
             logger.info('Grid search results saved')
 
         try:
-            data_train.pr_curve.savefig(compare_folder / f'{form_label}_{y_col}_{model_names[i]}_pr_curve.png')
+            data_train.threshold_curve.savefig(compare_folder / f'{form_label}_{y_col}_{model_names[i]}_threshold_curve.png')
         except Exception:
             logger.exception('Cannot save PR Curve')
         else:
@@ -196,7 +196,7 @@ def main(form_label, y_col='Incident', propagation=False):
 
 if __name__ == "__main__":
     # main('CR', 'Incident')
-    main('CR', 'Incident', propagation=True)
+    # main('CR', 'Incident', propagation=True)
     # main('PR', 'Incident')
     main('PR', 'Incident', propagation=True)
     # main('PR', 'Immaterial')
