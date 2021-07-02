@@ -17,14 +17,23 @@ threshold = 0.640327721789483
 
 def test_model_pred():
     X = nlp_feat.gen_sents(filtered_text[0])
-    pos_sents = model_build.model_pred(X, model, threshold)
-    assert len(pos_sents) == 0
+    pos_all = model_build.model_pred(X, model, threshold, nlp_feat.CR_tokenizer)
+    assert len(pos_all) == 0
 
+    X = nlp_feat.gen_sents(filtered_text[2])
+    pos_all = model_build.model_pred(X, model, threshold, nlp_feat.CR_tokenizer)
+    assert len(pos_all) > 0
+    print(pos_all)
 
-def test_df_model_pred():
+@pytest.mark.parametrize("output", ['sent', 'whole'])
+def test_df_model_pred(output):
     df = pd.DataFrame({'filtered_text': filtered_text})
     results = model_build.df_model_pred(df, X_col='filtered_text', y_col='Incident',
-    model_name='Baseline', model=model, threshold=threshold)
+    model_name='Baseline', output=output, model=model, threshold=threshold, tokenizer=nlp_feat.CR_tokenizer)
     print(results)
-    assert results.shape[1] == 4
-    assert results.shape[0] == 1
+    if output == 'sent':
+        assert results.shape[0] > 1
+        assert results.shape[1] == 2
+    elif output == 'whole':
+        assert results.shape[1] == 5
+        assert results.shape[0] == 1

@@ -80,7 +80,7 @@ class model_eval():
         self.pr_curve = None
         self.y_train_pred = None
         self.y_test_pred = None
-        self.refit_score = None
+        self.refit_score = 'roc_auc'
 
     def gen_train_test_set(self, test_size=0.2):
         X = self.data[self.x_col]
@@ -252,22 +252,31 @@ def model_pred(X, model, threshold, tokenizer):
                 return []
         else:
             y_pred = (y_proba > threshold).astype(int)
-            return [x for (x, pred) in zip(X, y_pred) if pred == 1]
+            return [(x, proba) for (x, pred, proba) in zip(X, y_pred, y_proba) if pred == 1]
     else:
         return []
 
 
-def df_model_pred(df, X_col, y_col, model_name, model, threshold, tokenizer):
+def df_model_pred(df, X_col, y_col, model_name, output='whole', **kwargs):
     df.reset_index(drop=True, inplace=True)
     sents = df[X_col].map(nlp_feat.gen_sents)
-    pos_sents = sents.apply(model_pred, model=model, threshold=threshold, tokenizer=tokenizer)
+    pos_all = sents.apply(model_pred, **kwargs)
 
-    df[f'{y_col}_{model_name}_sents_num'] = pos_sents.map(len)
-    df[f'{y_col}_{model_name}_sents'] = pos_sents.map(lambda s: " \n ".join(s))
-    df[f'{y_col}_{model_name}_pred'] = pos_sents.map(lambda s: 1 if len(s) > 0 else 0)
+    if output == 'sent':
+        result = pos_all.explode(ignore_index=True).dropna().drop_duplicates()
+        result = pd.DataFrame(result.tolist(), columns=['sents', f'{y_col}_{model_name}_proba'])
+        logger.info(f'fount {result.shape[0]} sentences with {y_col}')
+
+    elif output == 'whole':
+        pos_sents = pos_all.map(lambda t: list(zip(*t))[0] if len(t) > 0 else None)
+        pos_proba = pos_all.map(lambda t: list(zip(*t))[1] if len(t) > 0 else None)
+        df[f'{y_col}_{model_name}_sents_num'] = pos_all.map(len)
+        df[f'{y_col}_{model_name}_sents'] = pos_sents.map(lambda s: " \n ".join(s), na_action='ignore')
+        df[f'{y_col}_{model_name}_proba'] = pos_proba.map(np.mean, na_action='ignore')
+        df[f'{y_col}_{model_name}_pred'] = pos_all.map(lambda s: 1 if len(s) > 0 else 0)
     
-    result = df.loc[df[f'{y_col}_{model_name}_pred'] == 1]
-    logger.info(f'found {result.shape[0]} filing with {y_col}')
+        result = df.loc[df[f'{y_col}_{model_name}_pred'] == 1]
+        logger.info(f'found {result.shape[0]} filing out of {df.shape[0]} with {y_col}')
 
     try:
         return result
@@ -314,4 +323,9 @@ class semi_training(model_eval):
         return self.df.loc[self.df[self.y_col] != self.df['pseudo_label']]
         
     def self_training_noresult(self):
-        return self.df.loc[self.df['pseudo_label'] == -1]
+        noresult = self.df.loc[self.df['pseudo_label'] == -1]
+        probas = self.model.predict_proba(noresult[self.x_col])
+        noresult['proba_neg'] = probas[:,0]
+        noresult['proba_pos'] = probas[:,1]
+
+        return noresult

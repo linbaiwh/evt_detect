@@ -9,12 +9,13 @@ from steps_context import topfolder, tag, label_folder, model_folder, result_fol
 from evt_detect.utils.file_io import read_file_df, to_file_df, merge_csv, parallelize_df
 from evt_detect.models.model_build import df_model_pred
 from evt_detect.utils.preprocess import find_formtypes
+import evt_detect.features.nlp_features as nlp_feat
 
 warnings.filterwarnings("ignore")
 
 
 
-def main(form_label, y_col, model_name):
+def main(form_label, y_col, model_name, threshold=0.99, output='whole'):
 
     logging.config.fileConfig(logger_conf)
     logger = logging.getLogger('model_predict')
@@ -24,7 +25,8 @@ def main(form_label, y_col, model_name):
     # * Preparing model
     model = load(model_folder / f'{form_label}_{y_col}_{model_name}.joblib')
     model_sum_df = read_file_df(model_folder / f'{form_label}_{y_col}_spec.xlsx')
-    threshold = model_sum_df.loc[model_sum_df['model_name']==model_name, 'threshold'].squeeze()
+    if threshold is None:
+        threshold = model_sum_df.loc[model_sum_df['model_name']==model_name, 'threshold'].squeeze()
 
     # * Preparing files
     # Form types classification
@@ -33,22 +35,28 @@ def main(form_label, y_col, model_name):
 
     if form_label == 'CR':
         form_types = CR_types
+        tokenizer = nlp_feat.CR_tokenizer
     elif form_label == 'PR':
         form_types = PR_types
+        tokenizer = nlp_feat.PR_tokenizer
 
     csv_ins, csv_outs = find_formtypes(form_types, topfolder, tag=tag)
 
     for i in range(len(csv_ins)):
-        df = read_file_df(csv_ins[i])
-        df.dropna(subset=['filtered_text'], inplace=True)
-        logger.info(f'start predicting {csv_ins[i].name}')
+        if not csv_outs[i].exists():
+            df = read_file_df(csv_ins[i])
+            df.dropna(subset=['filtered_text'], inplace=True)
+            logger.info(f'start predicting {csv_ins[i].name}')
 
-        result_df = parallelize_df(df, df_model_pred, n_chunks=16,
-            X_col='filtered_text', y_col=y_col, 
-            model_name=model_name, model=model, threshold=threshold)
+            result_df = parallelize_df(df, df_model_pred, n_chunks=64,
+                X_col='filtered_text', y_col=y_col, model_name=model_name, 
+                output=output, model=model, threshold=threshold, tokenizer=tokenizer)
 
-        logger.info(f'finish predicting {csv_ins[i].name}')
-        to_file_df(result_df, csv_outs[i])
+            if result_df is not None:
+                logger.info(f'finish predicting {csv_ins[i].name}')
+                to_file_df(result_df, csv_outs[i])
+            
+            del df
 
     result_df = merge_csv(csv_outs)
 
@@ -62,4 +70,6 @@ def main(form_label, y_col, model_name):
     logger.info(f'{form_label} {y_col} prediction using {model_name} is saved')
 
 if __name__ == '__main__':
-    main('CR', 'Incident', 'Baseline')
+    # main('CR', 'Incident', 'Baseline')
+    # main('CR', 'Incident', 'Baseline_self_train', threshold=0.98)
+    main('PR', 'Incident', 'Baseline', threshold=None, output='sent')
