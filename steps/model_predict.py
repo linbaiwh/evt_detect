@@ -7,7 +7,7 @@ import multiprocessing
 from multiprocessing import Pool
 from steps_context import topfolder, tag, label_folder, model_folder, result_folder, logger_conf
 from evt_detect.utils.file_io import read_file_df, to_file_df, merge_csv, parallelize_df
-from evt_detect.models.model_build import df_model_pred
+from evt_detect.models.model_build import parag_pred
 from evt_detect.utils.preprocess import find_formtypes
 import evt_detect.features.nlp_features as nlp_feat
 
@@ -48,9 +48,9 @@ def main(form_label, y_col, model_name, threshold=0.99, output='whole'):
             df.dropna(subset=['filtered_text'], inplace=True)
             logger.info(f'start predicting {csv_ins[i].name}')
 
-            result_df = parallelize_df(df, df_model_pred, n_chunks=64,
-                X_col='filtered_text', y_col=y_col, model_name=model_name, 
-                output=output, model=model, threshold=threshold, tokenizer=tokenizer)
+            result_df = parallelize_df(df, parag_pred, n_chunks=64,
+                textcol='filtered_text', y_col=y_col, tokenizer=tokenizer,
+                output=output, model=model, threshold=threshold)
 
             if result_df is not None:
                 logger.info(f'finish predicting {csv_ins[i].name}')

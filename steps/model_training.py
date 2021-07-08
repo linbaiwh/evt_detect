@@ -14,7 +14,7 @@ from evt_detect.utils.file_io import read_file_df, to_file_df, merge_csv
 from evt_detect.models.model_build import model_prep, model_eval
 from evt_detect.features import nlp_features as nlp_feat
 from evt_detect.utils.visualize import plot_search_results
-
+from evt_detect.utils.preprocess import rm_features
 
 warnings.filterwarnings("ignore")
 
@@ -47,7 +47,7 @@ clf_params = [
         'classifier__class_weight': ['balanced'],
 
 
-        'fselector__n_components': [400, 600, 800, 1000]    
+        'fselector__n_components': [800, 1000, 1500, 2000]    
     }#, # * Baseline model
     # {
     #     'classifier__n_estimators': [300],  
@@ -97,38 +97,28 @@ def main(form_label, y_col='Incident', propagation=False):
     logger.info(f'Model training for {form_label} {y_col}')
 
     # * Feature Hyperparameters
-    if form_label == 'CR':
-        tokenizer = nlp_feat.CR_tokenizer
-
-    elif form_label == 'PR':
-        tokenizer = nlp_feat.PR_tokenizer
-
     feat_params = {
-        'features__vect__count__lowercase': [False],
-        'features__vect__count__tokenizer': [tokenizer],
+        'features__vect__count__lowercase': [False, True],
         'features__vect__count__ngram_range': [(1,2)],
-        'features__vect__count__max_df': [0.7],
+        'features__vect__count__max_df': [0.7, 0.8],
         'features__vect__count__min_df': [2],
         'features__vect__tfidf__use_idf': [True],
-        'features__vect__tfidf__sublinear_tf': [True],
-        
-        'features__length__tokenizer': [tokenizer] 
+        'features__vect__tfidf__sublinear_tf': [True] 
     }
 
     # * Prepare traing and test data
     if propagation == False:
-        sents_labeled = label_folder / f'{tag}_{form_label}_sents_labeled.xlsx'
-        sents_labeled_1 = label_folder / f'{tag}_{form_label}_sents_labeled_1.xlsx'
-        data = merge_csv([sents_labeled, sents_labeled_1])
-        data.drop('cik', axis=1, inplace=True)
-        data.fillna(0, inplace=True)
+        sents_labeled = label_folder / f'{tag}_{form_label}_sents_labeled.xlsx' 
+        rm_cols = ['Related', 'Incident', 'Immaterial', 'Cost', 'Litigation', 'Management']
     else:
-        sents_label_propagated = label_folder / f'{form_label}_{y_col}_label_propagated.xlsx'
-        data = read_file_df(sents_label_propagated)
-
+        sents_labeled = label_folder / f'{form_label}_{y_col}_labeled.xlsx'
+        rm_cols = ['true_label', y_col, f'{y_col}_proba']
+    
+    data = read_file_df(sents_labeled)
     data.drop_duplicates(inplace=True)
+    features = rm_features(data, rm_cols)
 
-    data_train = model_eval(data, y_col, x_col='sents')
+    data_train = model_eval(data, y_col, X_col=features)
     data_train.gen_train_test_set()
 
     # * Model training
@@ -141,8 +131,8 @@ def main(form_label, y_col='Incident', propagation=False):
         gs = data_train.model_tuning(pipe, params, refit_score='roc_auc')
 
         data_train.find_best_threshold()
-        data_train.model_predict()
-        data_train.model_val()
+        data_train.train_test_predict()
+        data_train.model_scores()
         data_train.model_sum['model_name'] = model_names[i]
 
         data_train.model_fin()
@@ -151,6 +141,13 @@ def main(form_label, y_col='Incident', propagation=False):
         logger.info(f'{data_train.model_sum}')
 
         # * Save model specific results
+        try:
+            data_train.model_save(model_folder / f'{form_label}_{y_col}_{model_names[i]}.joblib')
+        except Exception:
+            logger.exception('Cannot save best model')
+        else:
+            logger.info(f'{model_names[i]} saved')
+
         try:
             gsplot = plot_search_results(gs)
             gsplot.savefig(compare_folder / f'{form_label}_{y_col}_{model_names[i]}_gsplot.png')
@@ -162,9 +159,9 @@ def main(form_label, y_col='Incident', propagation=False):
         try:
             data_train.threshold_curve.savefig(compare_folder / f'{form_label}_{y_col}_{model_names[i]}_threshold_curve.png')
         except Exception:
-            logger.exception('Cannot save PR Curve')
+            logger.exception('Cannot save threshold Curve')
         else:
-            logger.info('PR Curve saved')
+            logger.info('threshold Curve saved')
         
         try:
             err_pred = data_train.predict_error()
@@ -173,12 +170,7 @@ def main(form_label, y_col='Incident', propagation=False):
         else:
             to_file_df(err_pred, compare_folder / f'{form_label}_{y_col}_{model_names[i]}_pred_err.xlsx')
             logger.info('Predict error saved')
-        try:
-            data_train.model_save(model_folder / f'{form_label}_{y_col}_{model_names[i]}.joblib')
-        except Exception:
-            logger.exception('Cannot save best model')
-        else:
-            logger.info(f'{model_names[i]} saved')
+
     
     # * Save results for all models
     models_df = data_train.models_summary()
@@ -196,7 +188,9 @@ def main(form_label, y_col='Incident', propagation=False):
 
 if __name__ == "__main__":
     # main('CR', 'Incident')
+    # main('CR', 'Related')
+    main('CR', 'Related', propagation=True)
     # main('CR', 'Incident', propagation=True)
     # main('PR', 'Incident')
-    main('PR', 'Incident', propagation=True)
+    # main('PR', 'Incident', propagation=True)
     # main('PR', 'Immaterial')

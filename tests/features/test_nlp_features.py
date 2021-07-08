@@ -1,6 +1,7 @@
-from ..context import evt_detect
 import pytest
+import pandas as pd
 
+from ..context import evt_detect
 import evt_detect.features.nlp_features as nlp_feat
 
 
@@ -49,17 +50,21 @@ corpus_list =["""SANTA CLARA, Calif., September 20, 2012 Palo Alto Networks (N
 def test_gen_sents():
     sents_num = [7, 3, 4, 1, 1]
     for i in range(4):
-        sents = nlp_feat.gen_sents(corpus_list[i])
+        sents_doc = nlp_feat.gen_sents_doc(corpus_list[i])
+        sents = nlp_feat.gen_sents(sents_doc)
         print(sents)
         assert len(sents) == sents_num[i]
 
+@pytest.fixture
+def sents_doc_list():
+    sents_doc = []
+    for corpus in corpus_list:
+        sents_doc += nlp_feat.gen_sents_doc(corpus)
+    return sents_doc
 
 @pytest.fixture
-def sents_list():
-    sents = []
-    for corpus in corpus_list:
-        sents += nlp_feat.gen_sents(corpus)
-    return sents
+def sents_list(sents_doc_list):
+    return nlp_feat.gen_sents(sents_doc_list)
     
 
 def test_find_entity(sents_list):
@@ -81,22 +86,33 @@ def test_match_itemNo():
         assert nlp_feat.match_itemNo(doc[0]) == False
         assert nlp_feat.match_itemNo(doc[1]) == False
 
-def test_tokenizer_ent(sents_list):
-    tokens_0 = nlp_feat.tokenizer_ent(sents_list[0], ents=nlp_feat.CR_ents)
+def test_tokenizer_ent(sents_doc_list):
+    tokens_0 = nlp_feat.tokenizer_ent(sents_doc_list[0], ents=nlp_feat.CR_ents)
     print(tokens_0)
     assert 'DATE' in tokens_0
 
-    tokens_6 = nlp_feat.tokenizer_ent(sents_list[6])
+    tokens_6 = nlp_feat.tokenizer_ent(sents_doc_list[6])
     print(tokens_6)
     assert 'URL' in tokens_6
 
-    tokens_14 = nlp_feat.tokenizer_ent(sents_list[14])
+    tokens_14 = nlp_feat.tokenizer_ent(sents_doc_list[14])
     print(tokens_14)
     assert 'ITEMNUM' in tokens_14
     
-    tokens_15 = nlp_feat.tokenizer_ent(sents_list[15])
+    tokens_15 = nlp_feat.tokenizer_ent(sents_doc_list[15])
     print(tokens_15)
     assert 'ITEMNUM' not in tokens_15
+
+def test_gen_tokens(sents_doc_list):
+    tokens = nlp_feat.gen_tokens(sents_doc_list, nlp_feat.CR_tokenizer)
+    assert len(tokens) == len(sents_doc_list)
+    print(tokens[15])
+
+
+@pytest.fixture
+def tokens_list(sents_doc_list):
+    return nlp_feat.gen_tokens(sents_doc_list, nlp_feat.CR_tokenizer)
+
 
 def test_entity_feature(sents_list):
     df = nlp_feat.entity_feature(sents_list, ents=nlp_feat.CR_ents)
@@ -104,41 +120,41 @@ def test_entity_feature(sents_list):
     assert df.shape[0] == len(sents_list)
     assert df.shape[1] == len(nlp_feat.CR_ents) + 5
 
-def test_get_top_words(sents_list):
+def test_get_top_words(sents_list, tokens_list):
     top_words, words_freq = nlp_feat.get_top_n_words(sents_list, n=5)
     print(top_words)
     print(words_freq)
     assert len(top_words) == 5
 
-    top_words, words_freq = nlp_feat.get_top_n_words(sents_list, n=5, 
-    lowercase=False, tokenizer=nlp_feat.CR_tokenizer, ngram_range=(1,2))
+    top_words, words_freq = nlp_feat.get_top_n_words(tokens_list, n=5, 
+    lowercase=False, ngram_range=(1,2))
     print(top_words)
     print(words_freq)
     assert len(top_words) == 5
 
-def test_length_feature(sents_list):
-    df = nlp_feat.length_feature(sents_list, nlp_feat.CR_tokenizer)
+def test_length_feature(sents_list, tokens_list):
+    df = nlp_feat.length_feature(sents_list)
     print(df.iloc[0])
     assert df.shape[0] == len(sents_list)
-    assert df.shape[1] == 6
+    assert df.shape[1] == 5
 
-    df = nlp_feat.length_feature(sents_list, tokenizer=None)
+    df = nlp_feat.length_feature(tokens_list)
     print(df.iloc[0])
-    assert df.shape[0] == len(sents_list)
-    assert df.shape[1] == 6
+    assert df.shape[0] == len(tokens_list)
+    assert df.shape[1] == 5
 
 
-def test_count_pos_tag(sents_list):
-    doc = nlp_feat.nlp(sents_list[0])
+def test_count_pos_tag(sents_doc_list):
+    doc = sents_doc_list[0]
     count_verb = nlp_feat.count_pos_tag(doc, False, 'VERB')
     count_vbd = nlp_feat.count_pos_tag(doc, 'VBD', False)
     assert count_verb == 1
     assert count_vbd == 1
 
-def test_pos_feature(sents_list):
-    df = nlp_feat.pos_feature(sents_list)
+def test_pos_feature(sents_doc_list):
+    df = nlp_feat.pos_feature(sents_doc_list)
     print(df.iloc[0])
-    assert df.shape[0] == len(sents_list)
+    assert df.shape[0] == len(sents_doc_list)
     assert df.shape[1] == 7
 
 def test_sentiment_feature(sents_list):
@@ -152,3 +168,16 @@ def test_topics_lsa(sents_list):
     decomp, features = nlp_feat.topics_lsa(sents_list)
     assert decomp.components_.shape[0] > 0
     assert decomp.components_.shape[1] == len(features)
+
+def test_parag_to_sents():
+    sents_df = nlp_feat.parag_to_sents(corpus_list[0], nlp_feat.CR_tokenizer)
+    print(sents_df.columns)
+    print(sents_df.iloc[0])
+    assert sents_df.shape[0] == 7
+
+def test_add_tokens_pos(sents_list):
+    df = pd.DataFrame({'sents': sents_list})
+    df = nlp_feat.add_tokens_pos(df, nlp_feat.CR_tokenizer)
+    assert df.shape[0] == len(sents_list)
+    assert 'tokens' in df.columns
+    print(df.iloc[0])

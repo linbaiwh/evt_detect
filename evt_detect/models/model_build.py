@@ -7,7 +7,8 @@ import matplotlib.pyplot as plt
 from sklearn.feature_extraction.text import TfidfTransformer, CountVectorizer
 from sklearn.semi_supervised import SelfTrainingClassifier
 
-from sklearn.pipeline import Pipeline, FeatureUnion
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
 from imblearn.pipeline import Pipeline as Pipeline_im
 
 from sklearn.model_selection import train_test_split, GridSearchCV
@@ -32,12 +33,14 @@ def model_prep(classifier, vect_scaler=None, lsa=None, scaler=None, fselector=No
 
     vect = Pipeline(vect_steps)
 
-    features = FeatureUnion([
-        ('vect', vect),
-        ('length', trf_length()),
-        ('pos', trf_pos()),
-        ('sentiment', trf_sentiment())
-    ])
+    features = ColumnTransformer(
+        [
+            ('vect', vect, 'tokens'),
+            ('length', trf_length(), 'tokens'),
+            ('sentiment', trf_sentiment(), 'sents')
+        ],
+        remainder='passthrough', n_jobs=-1
+    )
 
     steps = [('features', features)]
 
@@ -59,9 +62,9 @@ def model_prep(classifier, vect_scaler=None, lsa=None, scaler=None, fselector=No
 
 
 class model_eval():
-    def __init__(self, data, y_col, x_col='sents'):
+    def __init__(self, data, y_col, X_col):
         self.data = data
-        self.x_col = x_col
+        self.X_col = X_col
         self.y_col = y_col
         self.scores = {
             'pr_auc': 'average_precision',
@@ -83,18 +86,19 @@ class model_eval():
         self.refit_score = 'roc_auc'
 
     def gen_train_test_set(self, test_size=0.2):
-        X = self.data[self.x_col]
-        y = self.data[self.y_col]
-        y.fillna(0, inplace=True)
-        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(X,y,test_size=test_size,stratify=y, random_state=2021)
+        X = self.data[self.X_col]
+        y = self.data[self.y_col].fillna(0)
+        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(X, y,test_size=test_size,stratify=y, random_state=2021)
         return self
 
+    def params_prepare(self, model, params):
+        param_elgible = model.get_params().keys()
+        return {k:v for k, v in params.items() if k in param_elgible}
 
     def model_tuning(self, model, params, refit_score='pr_auc'):
         model_spec = dict((name, type(step).__name__) for name, step in model.steps[1:])
 
-        param_elgible = model.get_params().keys()
-        params = {k:v for k, v in params.items() if k in param_elgible}
+        params = self.params_prepare(model, params)
 
         gs = GridSearchCV(model, params, n_jobs=-1, scoring=self.scores, cv=3, return_train_score=True, refit=refit_score)
         gs.fit(self.X_train, self.y_train)
@@ -108,15 +112,30 @@ class model_eval():
 
         return gs
 
+    def model_fit(self, model, params):
+        params = self.params_prepare(model, params)
+        model.set_params(params)
+        model.fit(self.X_train, self.y_train)
+        logger.info('model fit successfully')
+        self.model = model
+        return self
 
-    def find_best_threshold(self):
+
+    def find_best_threshold(self, use_test=False):
+        if use_test:
+            y_true = self.y_test
+            X = self.X_test
+        else:
+            y_true = self.y_train
+            X = self.X_train
+
         try:
-            y_score = self.model.predict_proba(self.X_train)[:,1]
+            y_score = self.model.predict_proba(X)[:,1]
         except:
-            y_score = self.model.decision_function(self.X_train)
+            y_score = self.model.decision_function(X)
 
         if self.refit_score == 'pr_auc':
-            precisions, recalls, thresholds = precision_recall_curve(self.y_train, y_score)
+            precisions, recalls, thresholds = precision_recall_curve(y_true, y_score)
             f1s = [2*p*r/(p+r) for p, r in zip(precisions, recalls)]
             idx = np.argmax(f1s)
 
@@ -124,7 +143,7 @@ class model_eval():
             logger.info('PR Curve created')
 
         elif self.refit_score == 'roc_auc':
-            fpr, tpr, thresholds = roc_curve(self.y_train, y_score)
+            fpr, tpr, thresholds = roc_curve(y_true, y_score)
             g_means = np.sqrt(tpr * (1-fpr))
             idx = np.argmax(g_means)
 
@@ -160,57 +179,68 @@ class model_eval():
         plt.legend()
         return fig
 
-    def model_predict(self):
+    def model_probas(self, X):
         try:
-            y_train_score = self.model.predict_proba(self.X_train)[:,1]
-            y_test_score = self.model.predict_proba(self.X_test)[:,1]
+            return self.model.predict_proba(X)[:,1]
         except:
             logger.exception('Cannot call predict_proba')
-            
+
             try:
-                y_train_score = self.model.decision_function(self.X_train)
-                y_test_score = self.model.decision_function(self.X_test)
+                return self.model.predict(X)
             except:
-                logger.exception('Cannot call decision_function')
+                logger.exception('Cannot call predict')
+                return None
+
+    def model_predict(self, probas):
+        if probas is not None:
+            return (probas > self.threshold).astype(int)
+        logger.error('Cannot generate generate model prediction')
+        return None
+
+
+    def train_test_predict(self):
+        self.y_train_proba = self.model_probas(self.X_train)
+        self.y_test_proba = self.model_probas(self.X_test)
                 
-        try:
-            self.y_train_pred = (y_train_score > self.threshold).astype(int)
-            self.y_test_pred = (y_test_score > self.threshold).astype(int)
-        except:
-            logger.exception('Cannot use threshold to generate prediction')
-            self.y_train_pred = self.model.predict(self.X_train)
-            self.y_test_pred = self.model.predict(self.X_test)
-
-        logger.info('Model prediction generated')
-        
-        model_scores = {
-            'train_pr_auc': average_precision_score(self.y_train, y_train_score),
-            'test_pr_auc': average_precision_score(self.y_test, y_test_score),
-            'train_roc_auc': roc_auc_score(self.y_train, y_train_score),
-            'test_roc_auc': roc_auc_score(self.y_test, y_test_score)
-        }
-
-        self.model_sum = {**self.model_sum, **model_scores}
+        self.y_train_pred = self.model_predict(self.y_train_proba)
+        self.y_test_pred = self.model_predict(self.y_test_proba)
 
         return self
+        
 
     def predict_error(self):
         err_train = np.not_equal(self.y_train_pred, self.y_train)
         err_test = np.not_equal(self.y_test_pred, self.y_test)
 
-        errs = self.X_train[err_train].tolist()
-        errs += self.X_test[err_test].tolist()
-
-        trues = self.y_train[err_train].tolist()
-        trues += self.y_test[err_test].tolist()
+        errs_train = self.X_train.loc[err_train]
+        errs_test = self.X_test.loc[err_test]
+        err_df = pd.concat([errs_train, errs_test])
+        try:
+            trues = self.y_train[err_train].tolist()
+            trues += self.y_test[err_test].tolist()
+        except ValueError:
+            trues = self.y_train.loc[err_train].tolist()
+            trues += self.y_test.loc[err_test].tolist()
 
         preds = self.y_train_pred[err_train].tolist()
         preds += self.y_test_pred[err_test].tolist()
 
-        return pd.DataFrame(zip(errs, trues, preds), columns=[self.x_col, self.y_col, f'{self.y_col}_pred'])
+        probas = self.y_train_proba[err_train].tolist()
+        probas += self.y_test_proba[err_test].tolist()
 
-    def model_val(self):
-        model_scores = {
+        err_df[self.y_col] = trues
+        err_df[f'{self.y_col}_pred'] = preds
+        err_df[f'{self.y_col}_proba'] = probas
+
+        return err_df
+
+    def model_scores(self):
+        scores = {
+            'train_pr_auc': average_precision_score(self.y_train, self.y_train_proba),
+            'test_pr_auc': average_precision_score(self.y_test, self.y_test_proba),
+            'train_roc_auc': roc_auc_score(self.y_train, self.y_train_proba),
+            'test_roc_auc': roc_auc_score(self.y_test, self.y_test_proba),
+
             'train_precision': precision_score(self.y_train, self.y_train_pred),
             'test_precision': precision_score(self.y_test, self.y_test_pred),
             'train_recall': recall_score(self.y_train, self.y_train_pred),
@@ -218,7 +248,8 @@ class model_eval():
             'train_f1': f1_score(self.y_train, self.y_train_pred),
             'test_f1': f1_score(self.y_test, self.y_test_pred)
         }
-        self.model_sum = {**self.model_sum, **model_scores}
+
+        self.model_sum = {**self.model_sum, **scores}
         return self
 
     def model_save(self, save_file):
@@ -231,101 +262,94 @@ class model_eval():
     def models_summary(self):
         return pd.DataFrame(self.model_compare)
 
-def model_pred(X, model, threshold, tokenizer):
-    while len(X) > 0:
-        try:
-            y_proba = model.predict_proba(X)[:,1]
-        except ValueError:
-            logger.exception('The input paragraph is problematic')
-            logger.error(X)
-            X = [text for text in X if len(tokenizer(text)) > 0]
-        except:
-            logger.exception('Cannot call predict_proba')
-            try:
-                y_pred = model.predict(X)
-            except ValueError:
-                logger.exception('The input paragraph is problematic')
-                logger.error(X)
-                X = [text for text in X if len(tokenizer(text)) > 0]
-            except:
-                logger.exception('Cannot call predict')
-                return []
-        else:
-            y_pred = (y_proba > threshold).astype(int)
-            return [(x, proba) for (x, pred, proba) in zip(X, y_pred, y_proba) if pred == 1]
-    else:
-        return []
-
-
-def df_model_pred(df, X_col, y_col, model_name, output='whole', **kwargs):
-    df.reset_index(drop=True, inplace=True)
-    sents = df[X_col].map(nlp_feat.gen_sents)
-    pos_all = sents.apply(model_pred, **kwargs)
-
-    if output == 'sent':
-        result = pos_all.explode(ignore_index=True).dropna().drop_duplicates()
-        result = pd.DataFrame(result.tolist(), columns=['sents', f'{y_col}_{model_name}_proba'])
-        logger.info(f'fount {result.shape[0]} sentences with {y_col}')
-
-    elif output == 'whole':
-        pos_sents = pos_all.map(lambda t: list(zip(*t))[0] if len(t) > 0 else None)
-        pos_proba = pos_all.map(lambda t: list(zip(*t))[1] if len(t) > 0 else None)
-        df[f'{y_col}_{model_name}_sents_num'] = pos_all.map(len)
-        df[f'{y_col}_{model_name}_sents'] = pos_sents.map(lambda s: " \n ".join(s), na_action='ignore')
-        df[f'{y_col}_{model_name}_proba'] = pos_proba.map(np.mean, na_action='ignore')
-        df[f'{y_col}_{model_name}_pred'] = pos_all.map(lambda s: 1 if len(s) > 0 else 0)
-    
-        result = df.loc[df[f'{y_col}_{model_name}_pred'] == 1]
-        logger.info(f'found {result.shape[0]} filing out of {df.shape[0]} with {y_col}')
-
-    try:
-        return result
-    except:
-        logger.exception('Cannot generate prediction for DataFrame')
-        return pd.DataFrame()
 
 class semi_training(model_eval):
-    def __init__(self, labeled, unlabeled, y_col, x_col='sents'):
-        super().__init__(labeled, y_col, x_col)
+    def __init__(self, labeled, unlabeled, y_col, X_col):
+        super().__init__(labeled, y_col, X_col)
         self.unlabeled = unlabeled
 
     def prepare_unlabeled_set(self):
-        X = self.unlabeled[self.x_col]
+        X = self.unlabeled[self.X_col]
         y = self.unlabeled[self.y_col]
         y.fillna(-1, inplace=True)
 
-        self.X_all = pd.concat([self.X_train, X], ignore_index=True)
-        self.y_all = pd.concat([self.y_train, y], ignore_index=True)
+        self.X_train = pd.concat([self.X_train, X], ignore_index=True)
+        self.y_train = pd.concat([self.y_train, y], ignore_index=True)
 
         return self
 
     def self_training(self, model, threshold=0.95):
         self.model = model[:-1]
         self.model.steps.append(('clf', SelfTrainingClassifier(model[-1], threshold=threshold)))
-        self.model.fit(self.X_all, self.y_all)
+        self.model.fit(self.X_train, self.y_train)
 
-        self.threshold = threshold
-        self.df = pd.DataFrame({
-            self.x_col: self.X_all,
-            self.y_col: self.y_all,
-            'pseudo_label': self.model[-1].transduction_
-        })
         logger.info(f'The number of rounds of self-training is {self.model[-1].n_iter_}')
 
         return self
 
     def self_training_result(self):
-        results = self.df.loc[(self.df[self.y_col] != -1) | (self.df['pseudo_label'] != -1), [self.x_col, 'pseudo_label']]
-        results.rename(columns={'pseudo_label': self.y_col}, inplace=True)
+        X_all = pd.concat([self.X_train, self.X_test], ignore_index=True)
+        y_all = pd.concat([self.y_train, self.y_test], ignore_index=True)
+        pseudo_label = np.concatenate((self.model[-1].transduction_, self.y_test))
+        probas = self.model_probas(X_all)
+
+        self.df = pd.DataFrame(X_all, columns=self.X_col)
+        self.df[self.y_col] = y_all
+        self.df['pseudo_label'] = pseudo_label
+        self.df[f'{self.y_col}_proba'] = probas
+
+        return self
+
+    def self_training_labeled(self):
+        results = self.df.loc[(self.df[self.y_col] != -1) | (self.df['pseudo_label'] != -1)]
+        results.rename(columns={self.y_col: 'true_label', 'pseudo_label': self.y_col}, inplace=True)
         return results
 
-    def self_training_check(self):
-        return self.df.loc[self.df[self.y_col] != self.df['pseudo_label']]
+    def self_training_chg(self):
+        results = self.df.loc[self.df[self.y_col] != self.df['pseudo_label']]
+        results.rename(columns={self.y_col: 'true_label', 'pseudo_label': self.y_col}, inplace=True)
+        return results
         
-    def self_training_noresult(self):
-        noresult = self.df.loc[self.df['pseudo_label'] == -1]
-        probas = self.model.predict_proba(noresult[self.x_col])
-        noresult['proba_neg'] = probas[:,0]
-        noresult['proba_pos'] = probas[:,1]
+    def self_training_nolabel(self):
+        nolabel = self.df.loc[self.df['pseudo_label'] == -1]
+        return nolabel
 
-        return noresult
+
+
+def parag_pred(df, textcol, tokenizer, y_col, model, threshold, output='whole'):
+    sents_dfs = df[textcol].apply(nlp_feat.parag_to_sents, tokenizer=tokenizer).tolist()
+    if len(sents_dfs) > 0:
+        X_col = sents_dfs[0].columns.tolist()
+
+    sents_dfs = [sents_df.assign(idx=idx) for idx, sents_df in zip(df.index, sents_dfs)]
+
+    sents = pd.concat(sents_dfs, ignore_index=True)
+
+    sents_eval = model_eval(sents, y_col, X_col)
+    sents_eval.model = model
+    sents_eval.threshold = threshold
+    
+    X = sents_eval.data[sents_eval.X_col]
+    try:
+        sents['proba'] = sents_eval.model_probas(X)
+    except:
+        logger.exception('Cannot predict')
+        return pd.DataFrame()
+
+    sents['pred'] = sents_eval.model_predict(sents['proba'])
+
+    pos_sents = sents.loc[sents['pred'] == 1]
+    
+    pos_parags = pd.DataFrame()
+    pos_parags[f'{y_col}_sents'] = pos_sents.groupby('idx')['sents'].apply('\n'.join)
+    pos_parags[f'{y_col}_sents_num'] = pos_sents.groupby('idx')['sents'].count()
+    pos_parags[f'{y_col}_proba'] = pos_sents.groupby('idx')['proba'].mean()
+
+    logger.info(f'found {pos_parags.shape[0]} filing out of {df.shape[0]} with {y_col}')
+
+    if output == 'whole':
+        return df.join(pos_parags, how='inner')
+    elif output == 'pos_sents':
+        return pos_sents
+    elif output == 'all_sents':
+        return sents

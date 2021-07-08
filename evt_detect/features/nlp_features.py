@@ -126,7 +126,7 @@ def normalize_text(text):
         return text
 
 
-def gen_sents(text):
+def gen_sents_doc(text):
     """Generate valid sentences for a paragraph, including removing excessive characters
 
     Args:
@@ -142,7 +142,10 @@ def gen_sents(text):
         except ValueError:
             nlp.max_length = len(text)
 
-    return [str(sent) for sent in sents if valid_sent(sent)]
+    return [sent for sent in sents if valid_sent(sent)]
+
+def gen_sents(sents_doc):
+    return [str(sent) for sent in sents_doc]
 
 # * Each valid sentence is an observation for machine learning observation
 # todo: Need to add labels to each sentence mannually
@@ -153,15 +156,16 @@ def find_word_entity(sents):
     in the corpus, using spaCy.
 
     Args:
-        sents (List of string): the corpus as a list of sentences
+        sents (List of string or spacy.Doc): the corpus as a list of sentences
 
     Returns:
         pandas.DataFrame: resulting table
     """
     features = {}
 
-    for sent in sents:
-        doc = nlp(sent)
+    for doc in sents:
+        if isinstance(doc, str):
+            doc = nlp(doc)
         for ent in doc.ents:
             features[ent.label_] = features.get(ent.label_, []) + [ent.text]
         for token in doc:
@@ -194,12 +198,12 @@ CR_ents = ['DATE', 'TIME', 'TICKER', 'GPE', 'PERSON', 'PERCENT', 'LAW', 'MONEY',
 PR_ents = ['PERCENT', 'LAW', 'MONEY', 'FILING', 'GOV', 'SEC']
 
 # * tokenizer that replace certain named entities with the entity label
-def tokenizer_ent(text, ents=None):
+def tokenizer_ent(doc, ents=None):
     """tokenizer that transform text to a list of tokens, can be used with CountVectorizer.
     The tokenizer replaces certain types of named entity with the entity label from spaCy.
 
     Args:
-        text (string): original text to tokenize
+        doc (string or spacy.Doc): original text to tokenize
 
     Returns:
         List of string: List of resulting tokens
@@ -209,8 +213,9 @@ def tokenizer_ent(text, ents=None):
         if 'ORG' in ents:
             ORG_ent = True
             ents = [ent for ent in ents if ent != 'ORG']
-        
-    doc = nlp(text)
+    
+    if isinstance(doc, str):
+        doc = nlp(doc)
     tokens = []
     for token in doc:
         if ents is not None and token.ent_iob_ == 'B' and token.ent_type_ in ents:
@@ -243,6 +248,13 @@ def match_itemNo(token):
     except IndexError:
         return False
     return False
+
+def gen_tokens(sents_doc, tokenizer=None):
+    if tokenizer is None:
+        tokenizer = lambda x: str(x).split(" ")
+    
+    return [' '.join(tokenizer(sent)) for sent in sents_doc]
+
 
 def entity_feature(sents, ents=None):
     """Count number of specified named entities for each sentence, using spaCy
@@ -290,25 +302,22 @@ def get_top_n_words(sents, n=100, **kwargs):
     return list(zip(*word_freq[:n]))
 
 # * Length Analysis
-def length_feature(sents, tokenizer=tokenizer_ent):
+def length_feature(sents):
     """Generate length features for each sentence
 
     Args:
         sents (List of string): List of sentences
-        tokenizer (callable): a tokenizer function that transforms text to list of tokens 
 
     Returns:
         DataFrame: DataFrame containing original sentences and the length features
     """
     df = pd.DataFrame({'sents': sents})
-    if tokenizer is None:
-        tokenizer = lambda x: str(x).split(" ")
-    tokens = df['sents'].map(tokenizer)
-    df['word_count'] = tokens.map(len)
+    tokens = df['sents'].map(lambda x: str(x).split(" "))
+    word_count = tokens.map(len)
     df['char_count'] = tokens.map(lambda x: sum(len(token) for token in x))
-    df['avg_word_length'] = df['char_count'] / df['word_count']
+    df['avg_word_length'] = df['char_count'] / word_count
     df['unique_count'] = tokens.map(lambda x: len(set(x)))
-    df['unique_vs_words'] = df['unique_count'] / df['word_count']
+    df['unique_vs_words'] = df['unique_count'] / word_count
     return df
 
 # * Linguistic Analysis
@@ -329,17 +338,18 @@ def count_pos_tag(doc, tag, pos):
         return sum(token.pos_ == pos for token in doc)
 
 
-def pos_feature(sents):
+def pos_feature(sents_doc):
     """Generate part-of-speech features for each sentence, using spaCy
 
     Args:
-        sents (List of string): List of sentences
+        sents (List of string or spacy.Doc): List of sentences
 
     Returns:
         DataFrame: DataFrame containing original sentences and part-of-speech features
     """
-    df = pd.DataFrame({'sents': sents})
-    tokens = df['sents'].map(nlp)
+
+    tokens = pd.Series(sents_doc)
+    df = pd.DataFrame()
     # number of tokens that are not punctuation
     df['token_count'] = tokens.map(lambda t: sum(token.pos_!='PUNCT' for token in t))
     # percentage of verb, past tense
@@ -352,6 +362,7 @@ def pos_feature(sents):
     df['VERB_perc'] = tokens.apply(count_pos_tag, args=(False, 'VERB')) / df['token_count']
     # percentage of noun
     df['NOUN_perc'] = tokens.apply(count_pos_tag, args=(False, 'NOUN')) / df['token_count']
+    df['sents'] = [str(sent) for sent in sents_doc]
     return df
 
 # * Sentiment Analysis
@@ -364,7 +375,8 @@ def sentiment_feature(sents):
     Returns:
         DataFrame: DataFrame containing original sentences and sentiment features
     """
-    df = pd.DataFrame({'sents': sents})
+    df = pd.DataFrame()
+    df['sents'] = sents
     blobs = df['sents'].map(TextBlob)
     df['polarity'] = blobs.map(lambda t: t.sentiment.polarity)
     df['subjectivity'] = blobs.map(lambda t: t.sentiment.subjectivity)
@@ -425,4 +437,15 @@ def topics_lsa(X, decompose=TruncatedSVD, scaler=Normalizer, tfidf=True, vect_pa
 
     return pipe.named_steps.decompose, feature_names 
 
-    
+def parag_to_sents(text, tokenizer):
+    sents_doc = gen_sents_doc(text)
+    tokens = gen_tokens(sents_doc, tokenizer=tokenizer)
+    df = pos_feature(sents_doc)
+    df['tokens'] = tokens
+    return df.dropna(subset=['tokens']).drop_duplicates()
+
+def add_tokens_pos(df, tokenizer):
+    sents_doc = df['sents'].map(nlp)
+    df['tokens'] = sents_doc.map(lambda doc: gen_tokens([doc], tokenizer=tokenizer)[0])
+    df_pos = pos_feature(sents_doc).drop('sents', axis=1)
+    return df.join(df_pos)
