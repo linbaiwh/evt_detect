@@ -3,13 +3,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from evt_detect.utils.file_io import read_file_df, to_file_df, merge_csv
-from evt_detect.features.nlp_features import gen_sents
+from evt_detect.features.nlp_features import parag_to_sents, CR_tokenizer, PR_tokenizer
 
 
 logger = logging.getLogger(__name__)
 
 # * randomly select at most nmax files per year per file type
-def shuffle_files(csv_in, csv_out, ciks=None, nmax=160, textcol='filtered_text'):
+def shuffle_files(df, ciks=None, nmax=160, textcol='filtered_text'):
     """Randomly select one observation for at most nmax firms (ciks).
 
     Args:
@@ -26,7 +26,6 @@ def shuffle_files(csv_in, csv_out, ciks=None, nmax=160, textcol='filtered_text')
     Output:
         file: resulting csv file
     """
-    df = read_file_df(csv_in, low_memory=False)
     if df is None:
         return 0, 0
     df['cik'] = df['cik'].apply(str)
@@ -36,15 +35,13 @@ def shuffle_files(csv_in, csv_out, ciks=None, nmax=160, textcol='filtered_text')
     df = df.loc[df[textcol].notna(), ['cik', textcol]]
     df = df.sample(frac=1).groupby(['cik']).head(1)
     unique_firms = df.shape[0]
-    logger.info(f'{unique_firms} unique firms in {csv_in.name[:-4]}')
     
-    df = df.sample(frac=1, random_state=42).head(nmax)
-
-    to_file_df(df,csv_out)
+    if nmax is not None:
+        df = df.sample(frac=1, random_state=2021).head(nmax)
     
     if unique_firms:
-        return unique_firms, df.shape[0]/unique_firms
-    return 0, 0
+        return df, unique_firms, df.shape[0]/unique_firms
+    return df, 0, 0
 
 # * select ciks that experience breach media reports
 def select_breach_firms(datafolder):
@@ -61,7 +58,7 @@ def select_breach_firms(datafolder):
     return set(breached_df['cik'].dropna().unique())
 
 # * find original text files for the specified form types
-def find_formtypes(form_types, topfolder, tag='breach'):
+def find_formtypes(form_types, topfolder, tag='breach', year='all'):
     """Find original files accoring to certain form types.
 
     Args:
@@ -80,7 +77,10 @@ def find_formtypes(form_types, topfolder, tag='breach'):
 
     tcsvs = []
     for form_type in form_types:
-        tcsvs_0 = sorted(tinfo_folder.glob(f'{tag}_{form_type}*.csv'))
+        if year == 'all':
+            tcsvs_0 = sorted(tinfo_folder.glob(f'{tag}_{form_type}*.csv'))
+        else:
+            tcsvs_0 = sorted(tinfo_folder.glob(f'{tag}_{form_type}_{year}.csv'))
         tcsvs = tcsvs + tcsvs_0
 
     csv_outs = [tempfolder / csv_in.name for csv_in in tcsvs]
@@ -102,25 +102,33 @@ def parags_shuffled(cikfolder, csv_ins, csv_outs, nmax=160):
     """
     uniques = []
     select_pers = []
-    ciks = select_breach_firms(cikfolder)
+    if cikfolder is not None:
+        ciks = select_breach_firms(cikfolder)
+    else:
+        ciks = None
     for i in range(len(csv_ins)):
-        unique_firms, select_per = shuffle_files(csv_ins[i],csv_outs[i],ciks=ciks,nmax=nmax)
+        df = read_file_df(csv_ins[i], low_memory=False)
+        df, unique_firms, select_per = shuffle_files(df,ciks=ciks,nmax=nmax)
+        logger.info(f'{unique_firms} unique firms in {csv_ins[i].name[:-4]}')
+
+        to_file_df(df,csv_outs[i])
         uniques.append(unique_firms)
         select_pers.append(select_per)
 
-    _, (ax1, ax2) = plt.subplots(2, 1)
-    sns.histplot(x=uniques, ax=ax1)
-    sns.histplot(x=select_pers, ax=ax2)
+    if len(csv_ins) > 1:
+        _, (ax1, ax2) = plt.subplots(2, 1)
+        sns.histplot(x=uniques, ax=ax1)
+        sns.histplot(x=select_pers, ax=ax2)
 
-    df = merge_csv(csv_outs, outcsv=False, readkwargs={'low_memory': False})
+        df = merge_csv(csv_outs, outcsv=False, readkwargs={'low_memory': False})
 
-    duplicate_firms = df[['cik']].duplicated().sum()
-    logger.info(f'{duplicate_firms} duplicated firms')
+        duplicate_firms = df[['cik']].duplicated().sum()
+        logger.info(f'{duplicate_firms} duplicated firms')
 
     return df
 
 # * Randomly select nsents sentences for each cik - text, resulting the file for mannual labeling
-def sents_shuffled(df_p, nsents=2, textcol='filtered_text'):
+def sents_shuffled(df_p, nsents=2, textcol='filtered_text', form_label='CR'):
     """Randomly select at most nsents sentences for each firm
 
     Args:
@@ -132,15 +140,20 @@ def sents_shuffled(df_p, nsents=2, textcol='filtered_text'):
         DataFrame: DataFrame containing firm (cik), sentences (sents), and indicators for mannual
         labeling (Incident, Immaterial, Cost, Litigation, Management) 
     """
-    df = df_p.set_index('cik')
-    df['sents'] = df[textcol].map(gen_sents)
-    
+    if form_label == 'CR':
+        tokenizer = CR_tokenizer
+    elif form_label == 'PR':
+        tokenizer = PR_tokenizer
+
+    sents_dfs = df_p[textcol].apply(parag_to_sents, tokenizer=tokenizer).tolist()
+    sents_dfs = [sents_df.assign(cik=cik) for cik, sents_df in zip(df_p['cik'], sents_dfs)]
+
     # visualize number of sentences for each observation
-    num_sents = df['sents'].map(len)
+    num_sents = [sents_df.shape[0] for sents_df in sents_dfs]
     sns.histplot(x=num_sents)
 
-    sents = df['sents'].explode().reset_index()
-    sents = sents.dropna(subset=['sents']).drop_duplicates()
+    sents = pd.concat(sents_dfs, ignore_index=True)
+    sents.drop_duplicates(inplace=True)
     
     if nsents is not None:
         shuffled = sents.sample(frac=1, random_state=42).groupby('cik').head(nsents)
@@ -164,5 +177,11 @@ def unlabeled_sents(df, form_types):
     df_p = pd.concat([Incident_df, Immaterial_df], ignore_index=True)
     return sents_shuffled(df_p, nsents=None)
 
-
-
+def rm_features(df, rm_cols):
+    features = df.columns.tolist()
+    for rm_col in rm_cols:
+        try:
+            features.remove(rm_col)
+        except ValueError:
+            pass
+    return features
