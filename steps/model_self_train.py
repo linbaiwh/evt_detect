@@ -24,9 +24,9 @@ def main(form_label, y_col, model_name, threshold=0.95, save_model=False, ciks=F
 
 
     # * Preparing files
-    sents_labeled = label_folder / f'{tag}_{form_label}_sents_labeled.xlsx'
+    # sents_labeled = label_folder / f'{tag}_{form_label}_sents_labeled.xlsx'
 
-    # sents_labeled = label_folder / f'{form_label}_{y_col}_labeled.xlsx'
+    sents_labeled = label_folder / f'{form_label}_{y_col}_labeled.xlsx'
     labeled = read_file_df(sents_labeled)
 
     labeled.fillna(0, inplace=True)
