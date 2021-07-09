@@ -2,7 +2,7 @@ import logging
 import logging.config
 import pandas as pd
 import warnings
-from sklearn.preprocessing import StandardScaler, MaxAbsScaler, Normalizer
+from sklearn.preprocessing import StandardScaler, MaxAbsScaler, Normalizer, RobustScaler
 from sklearn.decomposition import TruncatedSVD, LatentDirichletAllocation
 from sklearn.feature_selection import SelectKBest, f_classif, chi2, mutual_info_classif
 from sklearn.linear_model import LogisticRegression
@@ -24,7 +24,17 @@ models = [
         'classifier': LogisticRegression,
         'scaler': MaxAbsScaler,
         'fselector': TruncatedSVD
-    }#, # * Baseline model
+    }, # * Baseline model
+    {
+        'classifier': LogisticRegression,
+        'scaler': RobustScaler,
+        'fselector': TruncatedSVD
+    }, # * Baseline model with Robust scaler
+    {
+        'classifier': LogisticRegression,
+        'scaler': StandardScaler,
+        'fselector': TruncatedSVD
+    }, # * Baseline model with Standard scaler
     # {
     #     'classifier': XGBClassifier,
     #     'vect_scaler': Normalizer,
@@ -46,9 +56,28 @@ clf_params = [
         'classifier__solver': ['lbfgs'],  
         'classifier__class_weight': ['balanced'],
 
+        'fselector__n_components': [800, 1000, 1500, 2000]    
+    }, # * Baseline model
+    {
+        'classifier__C': [0.1, 0.5, 1, 2, 4, 10],  
+        'classifier__penalty': ['l2'],  
+        'classifier__solver': ['lbfgs'],  
+        'classifier__class_weight': ['balanced'],
+
+        'scaler__with_centering': [False],
 
         'fselector__n_components': [800, 1000, 1500, 2000]    
-    }#, # * Baseline model
+    }, # * Baseline model with Robust scaler
+    {
+        'classifier__C': [0.1, 0.5, 1, 2, 4, 10],  
+        'classifier__penalty': ['l2'],  
+        'classifier__solver': ['lbfgs'],  
+        'classifier__class_weight': ['balanced'],
+
+        'scaler__with_mean': [False],
+
+        'fselector__n_components': [800, 1000, 1500, 2000]    
+    }, # * Baseline model with Standard scaler
     # {
     #     'classifier__n_estimators': [300],  
     #     'classifier__max_depth': [5],  
@@ -84,7 +113,9 @@ clf_params = [
 ]
 
 model_names = [
-    'Baseline'#,
+    'Baseline',
+    'Baseline_Robust',
+    'Baseline_Std'
     # 'Tree',
     # 'SVC'
 ]
@@ -102,8 +133,9 @@ def main(form_label, y_col='Incident', propagation=False):
         'features__vect__count__ngram_range': [(1,2)],
         'features__vect__count__max_df': [0.7, 0.8],
         'features__vect__count__min_df': [2],
+        'features__vect__count__stop_words': [['org', 'to', 'and', 'in', 'this', 'by', 'gpe', 'an', 'at', 'no', 'date', 'related', 'result', 'based']],
         'features__vect__tfidf__use_idf': [True],
-        'features__vect__tfidf__sublinear_tf': [True] 
+        'features__vect__tfidf__sublinear_tf': [True, False] 
     }
 
     # * Prepare traing and test data
@@ -130,7 +162,7 @@ def main(form_label, y_col='Incident', propagation=False):
         pipe = model_prep(**model_spec)
         gs = data_train.model_tuning(pipe, params, refit_score='roc_auc')
 
-        data_train.find_best_threshold()
+        data_train.find_best_threshold(use_test=True)
         data_train.train_test_predict()
         data_train.model_scores()
         data_train.model_sum['model_name'] = model_names[i]
@@ -188,9 +220,9 @@ def main(form_label, y_col='Incident', propagation=False):
 
 if __name__ == "__main__":
     # main('CR', 'Incident')
+    main('CR', 'Incident', propagation=True)
     # main('CR', 'Related')
-    main('CR', 'Related', propagation=True)
-    # main('CR', 'Incident', propagation=True)
+    # main('CR', 'Related', propagation=True)
     # main('PR', 'Incident')
     # main('PR', 'Incident', propagation=True)
     # main('PR', 'Immaterial')
