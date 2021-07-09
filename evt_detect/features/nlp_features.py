@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import re
 from pathlib import Path
 from functools import partial
@@ -314,10 +315,12 @@ def length_feature(sents):
     df = pd.DataFrame({'sents': sents})
     tokens = df['sents'].map(lambda x: str(x).split(" "))
     word_count = tokens.map(len)
-    df['char_count'] = tokens.map(lambda x: sum(len(token) for token in x))
-    df['avg_word_length'] = df['char_count'] / word_count
-    df['unique_count'] = tokens.map(lambda x: len(set(x)))
-    df['unique_vs_words'] = df['unique_count'] / word_count
+    char_count = tokens.map(lambda x: sum(len(token) for token in x))
+    df['char_count'] = char_count.map(np.log)
+    df['avg_word_length'] = char_count / word_count
+    unique_count = tokens.map(lambda x: len(set(x)))
+    df['unique_count'] = unique_count.map(np.log)
+    df['unique_vs_words'] = unique_count / word_count
     return df
 
 # * Linguistic Analysis
@@ -351,17 +354,18 @@ def pos_feature(sents_doc):
     tokens = pd.Series(sents_doc)
     df = pd.DataFrame()
     # number of tokens that are not punctuation
-    df['token_count'] = tokens.map(lambda t: sum(token.pos_!='PUNCT' for token in t))
+    token_count = tokens.map(lambda t: sum(token.pos_!='PUNCT' for token in t))
+    df['token_count'] = token_count.map(np.log)
     # percentage of verb, past tense
-    df['VBD_perc'] = tokens.apply(count_pos_tag, args=('VBD', False,)) / df['token_count']
+    df['VBD_perc'] = tokens.apply(count_pos_tag, args=('VBD', False,)) / token_count
     # percentage of verb, perfect tense
-    df['VBN_perc'] = tokens.apply(count_pos_tag, args=('VBN', False)) / df['token_count']
+    df['VBN_perc'] = tokens.apply(count_pos_tag, args=('VBN', False)) / token_count
     # percentage of verb, modal auxiliary
-    df['MD_perc'] = tokens.apply(count_pos_tag, args=('MD', False)) / df['token_count']
+    df['MD_perc'] = tokens.apply(count_pos_tag, args=('MD', False)) / token_count
     # percentage of verb
-    df['VERB_perc'] = tokens.apply(count_pos_tag, args=(False, 'VERB')) / df['token_count']
+    df['VERB_perc'] = tokens.apply(count_pos_tag, args=(False, 'VERB')) / token_count
     # percentage of noun
-    df['NOUN_perc'] = tokens.apply(count_pos_tag, args=(False, 'NOUN')) / df['token_count']
+    df['NOUN_perc'] = tokens.apply(count_pos_tag, args=(False, 'NOUN')) / token_count
     df['sents'] = [str(sent) for sent in sents_doc]
     return df
 
@@ -398,7 +402,7 @@ def compare_top_n_words(df, sents_col, keys, n=100, **kwargs):
         a specified group.
     """
     corpus_all = df[sents_col]
-    top_100_allwords, top_100_allfreq = get_top_n_words(corpus_all, n=100, **kwargs)
+    top_100_allwords, top_100_allfreq = get_top_n_words(corpus_all, n=n, **kwargs)
 
     top_100 = pd.DataFrame({'words': top_100_allwords, 'avg_all': top_100_allfreq})
 
@@ -406,8 +410,8 @@ def compare_top_n_words(df, sents_col, keys, n=100, **kwargs):
         corpus_pos = df.loc[df[key]==1, [sents_col]].squeeze()
         corpus_neg = df.loc[df[key]==0, [sents_col]].squeeze()
 
-        top_100_pos_words, top_100_pos_freq = get_top_n_words(corpus_pos, n=100, **kwargs)
-        top_100_neg_words, top_100_neg_freq = get_top_n_words(corpus_neg, n=100, **kwargs)
+        top_100_pos_words, top_100_pos_freq = get_top_n_words(corpus_pos, n=n, **kwargs)
+        top_100_neg_words, top_100_neg_freq = get_top_n_words(corpus_neg, n=n, **kwargs)
         top_100_pos = pd.DataFrame({'words': top_100_pos_words, f'{key}_pos': top_100_pos_freq})
         top_100_neg = pd.DataFrame({'words': top_100_neg_words, f'{key}_neg': top_100_neg_freq})
         
