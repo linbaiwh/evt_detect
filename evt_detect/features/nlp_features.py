@@ -453,3 +453,22 @@ def add_tokens_pos(df, tokenizer):
     df['tokens'] = sents_doc.map(lambda doc: gen_tokens([doc], tokenizer=tokenizer)[0])
     df_pos = pos_feature(sents_doc).drop('sents', axis=1)
     return df.join(df_pos)
+
+
+CR_stopwords_lower = [
+    'org', 'to', 'and', 'in', 'this', 'by', 
+    'gpe', 'an', 'at', 'no', 'date', 'related', 'result', 'based'
+    ]
+CR_stopwords_nolower = [
+    'ORG', 'to', 'and', 'in', 'In', 'this', 'This', 'by', 'By', 
+    'GPE', 'an', 'at', 'no', 'DATE', 'related', 'result', 'based'
+    ]
+
+PR_Related_stopwords_lower = [
+    'of', 'in', 'and', 'to', 'our', 'that', 'not', 'technology', 
+    'we', 'customers', 'materially', 'on', 'or'
+]
+PR_Related_stopwords_nolower = [
+    'of', 'in', 'In', 'and', 'to', 'our', 'Our', 'that', 'not', 'technology', 
+    'we', 'We', 'customers', 'materially', 'on', 'On', 'or'
+]
