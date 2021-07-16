@@ -316,10 +316,10 @@ def length_feature(sents):
     tokens = df['sents'].map(lambda x: str(x).split(" "))
     word_count = tokens.map(len)
     char_count = tokens.map(lambda x: sum(len(token) for token in x))
-    df['char_count'] = char_count.map(np.log)
+    df['char_count'] = np.log(char_count + 1)
     df['avg_word_length'] = char_count / word_count
     unique_count = tokens.map(lambda x: len(set(x)))
-    df['unique_count'] = unique_count.map(np.log)
+    df['unique_count'] = np.log(unique_count + 1)
     df['unique_vs_words'] = unique_count / word_count
     return df
 
@@ -355,7 +355,7 @@ def pos_feature(sents_doc):
     df = pd.DataFrame()
     # number of tokens that are not punctuation
     token_count = tokens.map(lambda t: sum(token.pos_!='PUNCT' for token in t))
-    df['token_count'] = token_count.map(np.log)
+    df['token_count'] = np.log(token_count + 1)
     # percentage of verb, past tense
     df['VBD_perc'] = tokens.apply(count_pos_tag, args=('VBD', False,)) / token_count
     # percentage of verb, perfect tense
@@ -446,7 +446,7 @@ def parag_to_sents(text, tokenizer):
     tokens = gen_tokens(sents_doc, tokenizer=tokenizer)
     df = pos_feature(sents_doc)
     df['tokens'] = tokens
-    return df.dropna(subset=['tokens']).drop_duplicates()
+    return df.dropna().drop_duplicates()
 
 def add_tokens_pos(df, tokenizer):
     sents_doc = df['sents'].map(nlp)
