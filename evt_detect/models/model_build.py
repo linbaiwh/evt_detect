@@ -4,6 +4,8 @@ import pandas as pd
 import joblib
 import matplotlib.pyplot as plt
 
+from pandarallel import pandarallel
+
 from sklearn.feature_extraction.text import TfidfTransformer, CountVectorizer
 from sklearn.semi_supervised import SelfTrainingClassifier
 
@@ -18,6 +20,7 @@ from evt_detect.models.trfs import trf_length, trf_pos, trf_sentiment
 import evt_detect.features.nlp_features as nlp_feat
 
 logger = logging.getLogger(__name__)
+pandarallel.initialize()
 
 def model_prep(classifier, vect_scaler=None, lsa=None, scaler=None, fselector=None, oversampler=None, undersampler=None):
     vect_steps = [
@@ -56,7 +59,10 @@ def model_prep(classifier, vect_scaler=None, lsa=None, scaler=None, fselector=No
     if undersampler is not None:
         steps.append(('undersampler', undersampler()))
 
-    steps.append(('classifier', classifier()))
+    if 'n_jobs' in classifier().get_params().keys():
+        steps.append(('classifier', classifier(n_jobs=-1)))
+    else:
+        steps.append(('classifier', classifier()))
 
     return Pipeline_im(steps)
 
@@ -93,7 +99,12 @@ class model_eval():
 
     def params_prepare(self, model, params):
         param_elgible = model.get_params().keys()
-        return {k:v for k, v in params.items() if k in param_elgible}
+        if isinstance(params, dict):
+            return {k:v for k, v in params.items() if k in param_elgible}
+        if isinstance(params, list):
+            return [
+                {k:v for k, v in param.items() if k in param_elgible} for param in params
+            ]
 
     def model_tuning(self, model, params, refit_score='pr_auc'):
         model_spec = dict((name, type(step).__name__) for name, step in model.steps[1:])
@@ -105,6 +116,7 @@ class model_eval():
 
         logger.info('GridSearch Finished')
         self.model = gs.best_estimator_
+        self.model.feature_names = self.X_train.columns.values
 
         self.model_sum = {**model_spec, **gs.best_params_}
         self.model_sum[f'valid_{refit_score}'] = gs.best_score_
@@ -317,10 +329,14 @@ class semi_training(model_eval):
 
 
 def parag_pred(df, textcol, tokenizer, y_col, model, threshold, output='whole'):
-    sents_dfs = df[textcol].apply(nlp_feat.parag_to_sents, tokenizer=tokenizer).tolist()
-    if len(sents_dfs) > 0:
-        X_col = sents_dfs[0].columns.tolist()
-
+    sents_dfs = df[textcol].parallel_apply(nlp_feat.parag_to_sents, tokenizer=tokenizer).tolist()
+    # if len(sents_dfs) > 0:
+    #     X_col = sents_dfs[0].columns.tolist()
+    try:
+        X_col = model.feature_names
+    except:
+        X_col = ['sents', 'tokens', 'token_count', 'VBD_perc', 'VBN_perc',
+        'MD_perc', 'VERB_perc', 'NOUN_perc']
     sents_dfs = [sents_df.assign(idx=idx) for idx, sents_df in zip(df.index, sents_dfs)]
 
     sents = pd.concat(sents_dfs, ignore_index=True)
@@ -329,13 +345,11 @@ def parag_pred(df, textcol, tokenizer, y_col, model, threshold, output='whole'):
     sents_eval.model = model
     sents_eval.threshold = threshold
     
+    
     X = sents_eval.data[sents_eval.X_col]
-    try:
-        sents['proba'] = sents_eval.model_probas(X)
-    except:
-        logger.exception('Cannot predict')
-        return pd.DataFrame()
+    logger.info(f'start predicting {X.shape[0]} sentences')
 
+    sents['proba'] = sents_eval.model_probas(X)
     sents['pred'] = sents_eval.model_predict(sents['proba'])
 
     pos_sents = sents.loc[sents['pred'] == 1]
