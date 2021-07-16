@@ -6,7 +6,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 def compare_features(data, sents_col, keys, feature_func, **kwargs):
-    df = feature_func(data[sents_col], **kwargs)
+    if feature_func is not None:
+        df = feature_func(data[sents_col], **kwargs)
+    else:
+        df = data[sents_col]
     features = df.select_dtypes(exclude=object).columns
     keys_col = data[keys]
     df = df.join(keys_col)
@@ -55,7 +58,22 @@ def plot_search_results(grid):
         grid (GridSearchCV): GridSearchCV Instance that have cv_results
     """
     cv_results = pd.DataFrame(grid.cv_results_)
-    params = [param[6:] for param in cv_results.columns if 'param_' in param and cv_results[param].nunique() > 1]
+    params = []
+    for param in cv_results.columns:
+        if 'param_' in param:
+            try:
+                unique_param = cv_results[param].nunique()
+            except TypeError:
+                logger.error(f'cannot count for {param}')
+                unique_param = 1
+            except:
+                logger.exception(f'cannot count for {param}')
+                unique_param = 1
+            
+            if unique_param > 1:
+                params.append(param[6:])
+
+    # params = [param[6:] for param in cv_results.columns if 'param_' in param and cv_results[param].nunique() > 1]
     num_params = len(params)
     scores = [score[11:] for score in cv_results.columns if 'mean_train_' in score]
     num_scores = len(scores)
