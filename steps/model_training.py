@@ -41,11 +41,11 @@ models = [
     #     'lsa': NMF,
     #     'scaler': MaxAbsScaler
     # }, # * Tree-based model
-    {
-        'classifier': SVC,
-        'scaler': MaxAbsScaler,
-        'fselector': TruncatedSVD
-    } # * SVC
+    # {
+    #     'classifier': SVC,
+    #     'scaler': MaxAbsScaler,
+    #     'fselector': TruncatedSVD
+    # } # * SVC
 ]
 
 # * Classifier Hyperparameters
@@ -92,32 +92,32 @@ clf_params = [
 
     #     'features__vect__count__max_features': [1000]
     # }, # * Tree-based model
-    {
-        'classifier__kernel': ['rbf'],  
-        'classifier__C': [0.1, 0.5, 1, 4, 10],  
-        'classifier__gamma': ['scale'],  
-        'classifier__probability': [True],  
-        'classifier__class_weight': ['balanced'],
+    # {
+    #     'classifier__kernel': ['rbf'],  
+    #     'classifier__C': [0.1, 0.5, 1, 4, 10],  
+    #     'classifier__gamma': ['scale'],  
+    #     'classifier__probability': [True],  
+    #     'classifier__class_weight': ['balanced'],
         
-        # 'features__vect__count__max_features': [1200],
+    #     # 'features__vect__count__max_features': [1200],
 
-        'fselector__n_components': [600, 800, 1200],
-        # 'fselector__learning_method': ['online'] 
+    #     'fselector__n_components': [600, 800, 1200],
+    #     # 'fselector__learning_method': ['online'] 
 
 
-        # 'features__vect__lsa__init': ['nndsvd'],
-        # 'features__vect__lsa__alpha': [0.01, 0.1, 1, 4, 10],
-        # 'features__vect__lsa__l1_ratio': [0, 0.5, 1],
-        # 'features__vect__lsa__max_iter': [10000]
-    } # * SVC
+    #     # 'features__vect__lsa__init': ['nndsvd'],
+    #     # 'features__vect__lsa__alpha': [0.01, 0.1, 1, 4, 10],
+    #     # 'features__vect__lsa__l1_ratio': [0, 0.5, 1],
+    #     # 'features__vect__lsa__max_iter': [10000]
+    # } # * SVC
 ]
 
 model_names = [
     'Baseline',
     'Baseline_Robust',
-    'Baseline_Std',
+    'Baseline_Std'
     # 'Tree',
-    'SVC'
+    # 'SVC'
 ]
 
 def main(form_label, y_col='Incident', propagation=False):
