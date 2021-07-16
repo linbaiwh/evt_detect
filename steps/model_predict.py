@@ -48,8 +48,7 @@ def main(form_label, y_col, model_name, threshold=0.99, output='whole'):
             df.dropna(subset=['filtered_text'], inplace=True)
             logger.info(f'start predicting {csv_ins[i].name}')
 
-            result_df = parallelize_df(df, parag_pred, n_chunks=64,
-                textcol='filtered_text', y_col=y_col, tokenizer=tokenizer,
+            result_df = parag_pred(df, textcol='filtered_text', y_col=y_col, tokenizer=tokenizer,
                 output=output, model=model, threshold=threshold)
 
             if result_df is not None:
@@ -70,6 +69,6 @@ def main(form_label, y_col, model_name, threshold=0.99, output='whole'):
     logger.info(f'{form_label} {y_col} prediction using {model_name} is saved')
 
 if __name__ == '__main__':
-    # main('CR', 'Incident', 'Baseline')
+    main('CR', 'Incident', 'Baseline', threshold=0.6)
     # main('CR', 'Incident', 'Baseline_self_train', threshold=0.98)
-    main('PR', 'Incident', 'Baseline', threshold=None, output='sent')
+    # main('PR', 'Incident', 'Baseline', threshold=None, output='sent')
