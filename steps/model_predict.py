@@ -2,6 +2,7 @@ import logging
 import logging.config
 import warnings
 import pandas as pd
+import numpy as np
 from joblib import load
 import multiprocessing
 from multiprocessing import Pool
@@ -48,16 +49,21 @@ def main(form_label, y_col, model_name, threshold=0.99, output='whole'):
             df.dropna(subset=['filtered_text'], inplace=True)
             logger.info(f'start predicting {csv_ins[i].name}')
 
-            result_df = parallelize_df(df, parag_pred, n_chunks=64,
-                textcol='filtered_text', y_col=y_col, tokenizer=tokenizer,
-                output=output, model=model, threshold=threshold)
+            dfs = np.array_split(df, 4)
+            del df
+            result_dfs = []
+            for j in range(4):
+                result_df = parag_pred(dfs[j], textcol='filtered_text', y_col=y_col, tokenizer=tokenizer,
+                    output=output, model=model, threshold=threshold)
+                if result_df is not None:
+                    result_dfs.append(result_df)
+                    logger.info(f'finish predicting {csv_ins[i].name} chunk {j}')
 
-            if result_df is not None:
+            if result_dfs:
+                result_df = pd.concat(result_dfs)
                 logger.info(f'finish predicting {csv_ins[i].name}')
                 to_file_df(result_df, csv_outs[i])
             
-            del df
-
     result_df = merge_csv(csv_outs)
 
     results_file = result_folder / f'{form_label}_pred.xlsx'
