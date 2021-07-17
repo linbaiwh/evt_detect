@@ -69,6 +69,7 @@ def main(form_label, y_col, model_name, threshold=0.99, output='whole'):
     logger.info(f'{form_label} {y_col} prediction using {model_name} is saved')
 
 if __name__ == '__main__':
-    main('CR', 'Incident', 'Baseline', threshold=0.6)
+    main('CR', 'Incident', 'Baseline', threshold=0.6, output='pos_sents')
     # main('CR', 'Incident', 'Baseline_self_train', threshold=0.98)
-    # main('PR', 'Incident', 'Baseline', threshold=None, output='sent')
+    # main('PR', 'Incident', 'Baseline', threshold=None, output='pos_sents')
+    # main('PR', 'Related', 'Baseline_Robust', threshold=None, output='pos_sents')

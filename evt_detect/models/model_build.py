@@ -2,6 +2,7 @@ import logging
 import numpy as np
 import pandas as pd
 import joblib
+from joblib import Parallel, delayed
 import matplotlib.pyplot as plt
 
 from pandarallel import pandarallel
@@ -326,6 +327,8 @@ class semi_training(model_eval):
         nolabel = self.df.loc[self.df['pseudo_label'] == -1]
         return nolabel
 
+def add_idx(idx, sents_df):
+    return sents_df.assign(idx=idx)
 
 
 def parag_pred(df, textcol, tokenizer, y_col, model, threshold, output='whole'):
@@ -337,7 +340,7 @@ def parag_pred(df, textcol, tokenizer, y_col, model, threshold, output='whole'):
     except:
         X_col = ['sents', 'tokens', 'token_count', 'VBD_perc', 'VBN_perc',
         'MD_perc', 'VERB_perc', 'NOUN_perc']
-    sents_dfs = [sents_df.assign(idx=idx) for idx, sents_df in zip(df.index, sents_dfs)]
+    sents_dfs = Parallel(n_jobs=-1)(delayed(add_idx)(idx, sents_df) for idx, sents_df in zip(df.index, sents_dfs))
 
     sents = pd.concat(sents_dfs, ignore_index=True)
 
