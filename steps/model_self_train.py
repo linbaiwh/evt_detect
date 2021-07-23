@@ -66,7 +66,7 @@ def main(form_label, y_col, model_name, threshold=0.95, save_model=False, ciks=F
     logger.info('self training no result saved')
 
     # * new model performance
-    data.find_best_threshold(use_test=True)
+    # data.find_best_threshold(use_test=True)
     # data.train_test_predict()
     # data.model_scores()
     # data.model_sum['model_name'] = model_name
@@ -80,6 +80,7 @@ def main(form_label, y_col, model_name, threshold=0.95, save_model=False, ciks=F
 
 if __name__ == "__main__":
     # main('CR', 'Incident', 'Baseline', threshold=0.99)
-    main('CR', 'Related', 'Baseline', threshold=0.99)
+    # main('CR', 'Related', 'Baseline', threshold=0.99)
     # main('PR', 'Incident', 'Baseline', threshold=0.99)
+    main('PR', 'Related', 'Baseline_Robust', threshold=0.99)
     # main('PR', 'Immaterial', 'Baseline', threshold=0.99)

@@ -3,9 +3,10 @@ import sys
 import os
 sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-topfolder = Path(r'E:\SEC filing')
+# topfolder = Path(r'E:\SEC filing')
 tag = 'breach'
 data_folder = Path(__file__).resolve().parents[1] / 'data'
+topfolder = data_folder
 input_folder = data_folder / 'input'
 label_folder = data_folder / 'label'
 model_folder = data_folder / 'model'

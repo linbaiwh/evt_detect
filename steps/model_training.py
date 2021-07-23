@@ -243,6 +243,7 @@ if __name__ == "__main__":
     # main('CR', 'Related')
     # main('CR', 'Related', propagation=True)
     # main('PR', 'Incident')
-    main('PR', 'Related')
+    # main('PR', 'Related')
+    main('PR', 'Related', propagation=True)
     # main('PR', 'Incident', propagation=True)
     # main('PR', 'Immaterial')
