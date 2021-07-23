@@ -196,7 +196,7 @@ def match_not_ent(token):
     return False
 
 CR_ents = ['DATE', 'TIME', 'TICKER', 'GPE', 'PERSON', 'PERCENT', 'LAW', 'MONEY', 'FILING', 'GOV', 'LOC', 'SEC', 'ORG']
-PR_ents = ['PERCENT', 'LAW', 'MONEY', 'FILING', 'GOV', 'SEC']
+PR_ents = ['PERCENT', 'LAW', 'MONEY', 'FILING', 'GOV', 'SEC', 'DATE', 'PERSON', 'ORG']
 
 # * tokenizer that replace certain named entities with the entity label
 def tokenizer_ent(doc, ents=None):
