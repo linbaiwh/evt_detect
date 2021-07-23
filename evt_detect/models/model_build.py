@@ -104,8 +104,8 @@ class model_eval():
         gs.fit(self.X_train, self.y_train)
 
         logger.info('GridSearch Finished')
-        self.model = gs.best_estimator_
 
+        self.model_fit(model, gs.best_params_)
         self.model_sum = {**model_spec, **gs.best_params_}
         self.model_sum[f'valid_{refit_score}'] = gs.best_score_
         self.refit_score = refit_score
