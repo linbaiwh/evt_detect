@@ -6,6 +6,7 @@ chardet==4.0.0
 click==7.1.2
 cycler==0.10.0
 cymem==2.0.5
+dill==0.3.4
 en-core-web-md @ https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.0.0/en_core_web_md-3.0.0-py3-none-any.whl
 et-xmlfile==1.1.0
 idna==2.10
@@ -22,6 +23,7 @@ nltk==3.6.2
 numpy==1.21.0
 openpyxl==3.0.7
 packaging==20.9
+pandarallel==1.5.2
 pandas==1.2.5
 pathlib==1.0.1
 pathy==0.6.0
