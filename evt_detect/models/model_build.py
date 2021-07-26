@@ -336,27 +336,17 @@ def add_idx(idx, sents_df):
 
 def parag_pred(df, textcol, tokenizer, y_col, model, threshold, output='whole'):
     sents_dfs = df[textcol].parallel_apply(nlp_feat.parag_to_sents, tokenizer=tokenizer).tolist()
-    # if len(sents_dfs) > 0:
-    #     X_col = sents_dfs[0].columns.tolist()
-    try:
-        X_col = model.feature_names
-    except:
-        X_col = ['sents', 'tokens', 'token_count', 'VBD_perc', 'VBN_perc',
-        'MD_perc', 'VERB_perc', 'NOUN_perc']
+
+    # try:
+    #     X_col = model.feature_names
+    # except:
+    #     X_col = ['sents', 'tokens', 'token_count', 'VBD_perc', 'VBN_perc',
+    #     'MD_perc', 'VERB_perc', 'NOUN_perc']
     sents_dfs = Parallel(n_jobs=-1)(delayed(add_idx)(idx, sents_df) for idx, sents_df in zip(df.index, sents_dfs))
 
     sents = pd.concat(sents_dfs, ignore_index=True)
 
-    sents_eval = model_eval(sents, y_col, X_col)
-    sents_eval.model = model
-    sents_eval.threshold = threshold
-    
-    
-    X = sents_eval.data[sents_eval.X_col]
-    logger.info(f'start predicting {X.shape[0]} sentences')
-
-    sents['proba'] = sents_eval.model_probas(X)
-    sents['pred'] = sents_eval.model_predict(sents['proba'])
+    sents = sents_pred(sents, y_col, model, threshold)
 
     pos_sents = sents.loc[sents['pred'] == 1]
     
@@ -373,3 +363,18 @@ def parag_pred(df, textcol, tokenizer, y_col, model, threshold, output='whole'):
         return pos_sents
     elif output == 'all_sents':
         return sents
+
+
+def sents_pred(sents, y_col, model, threshold):
+    X_col = model.feature_names
+
+    sents_eval = model_eval(sents, y_col, X_col)
+    sents_eval.model = model
+    sents_eval.threshold = threshold
+     
+    X = sents_eval.data[sents_eval.X_col]
+    logger.info(f'start predicting {X.shape[0]} sentences')
+
+    sents['proba'] = sents_eval.model_probas(X)
+    sents['pred'] = sents_eval.model_predict(sents['proba'])
+    return sents

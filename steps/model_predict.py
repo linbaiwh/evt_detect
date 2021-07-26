@@ -8,7 +8,7 @@ import multiprocessing
 from multiprocessing import Pool
 from steps_context import topfolder, tag, label_folder, model_folder, result_folder, logger_conf
 from evt_detect.utils.file_io import read_file_df, to_file_df, merge_csv, parallelize_df
-from evt_detect.models.model_build import parag_pred
+from evt_detect.models.model_build import parag_pred, sents_pred
 from evt_detect.utils.preprocess import find_formtypes
 import evt_detect.features.nlp_features as nlp_feat
 
@@ -72,17 +72,21 @@ def main(form_label, y_col, model_name, threshold=0.99, output='whole', inputs='
             result_pre = read_file_df(results_file)
             result_df = result_df.merge(result_pre, how='outer')
 
-    elif inputs == 'sent':
+    elif inputs == 'sents':
         csv_in = result_folder / f'{form_label}_sents.xlsx'
         df = read_file_df(csv_in)
-        
+        sents = nlp_feat.add_tokens_pos(df, tokenizer)
+        result_df = sents_pred(sents, y_col, model, threshold)
+        logger.info(f'finish predicting {csv_in.name}')
+        results_file = result_folder / f'{form_label}_sents_pred.xlsx'
 
     to_file_df(result_df, results_file)
 
     logger.info(f'{form_label} {y_col} prediction using {model_name} is saved')
 
 if __name__ == '__main__':
-    main('CR', 'Incident', 'Baseline', threshold=0.6, output='pos_sents')
+    # main('CR', 'Incident', 'Baseline', threshold=0.6, output='pos_sents')
     # main('CR', 'Incident', 'Baseline_self_train', threshold=0.98)
     # main('PR', 'Incident', 'Baseline', threshold=None, output='pos_sents')
     # main('PR', 'Related', 'Baseline_Robust', threshold=None, output='pos_sents')
+    main('PR', 'Incident', 'Baseline_Std', threshold=None, inputs='sents')
