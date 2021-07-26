@@ -60,10 +60,7 @@ def model_prep(classifier, vect_scaler=None, lsa=None, scaler=None, fselector=No
     if undersampler is not None:
         steps.append(('undersampler', undersampler()))
 
-    if 'n_jobs' in classifier().get_params().keys():
-        steps.append(('classifier', classifier(n_jobs=-1)))
-    else:
-        steps.append(('classifier', classifier()))
+    steps.append(('classifier', classifier()))
 
     return Pipeline_im(steps)
 
@@ -112,6 +109,7 @@ class model_eval():
 
         params = self.params_prepare(model, params)
 
+        logger.info('start GridSearchCV')
         gs = GridSearchCV(model, params, n_jobs=-1, scoring=self.scores, cv=3, return_train_score=True, refit=refit_score)
         gs.fit(self.X_train, self.y_train)
 
@@ -127,7 +125,7 @@ class model_eval():
 
     def model_fit(self, model, params):
         params = self.params_prepare(model, params)
-        model.set_params(params)
+        model.set_params(**params)
         model.fit(self.X_train, self.y_train)
         logger.info('model fit successfully')
         self.model = model
@@ -211,12 +209,16 @@ class model_eval():
         return None
 
 
-    def train_test_predict(self):
+    def train_test_predict(self, use_proba=True):
         self.y_train_proba = self.model_probas(self.X_train)
         self.y_test_proba = self.model_probas(self.X_test)
-                
-        self.y_train_pred = self.model_predict(self.y_train_proba)
-        self.y_test_pred = self.model_predict(self.y_test_proba)
+        
+        if use_proba:
+            self.y_train_pred = self.model_predict(self.y_train_proba)
+            self.y_test_pred = self.model_predict(self.y_test_proba)
+        else:
+            self.y_train_pred = self.model.predict(self.X_train)
+            self.y_test_pred = self.model.predict(self.X_test)
 
         return self
         
