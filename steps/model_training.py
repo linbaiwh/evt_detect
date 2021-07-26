@@ -208,7 +208,8 @@ def main(form_label, y_col='Incident', propagation=False):
             logger.info('Grid search results saved')
 
         try:
-            data_train.threshold_curve.savefig(compare_folder / f'{form_label}_{y_col}_{model_names[i]}_threshold_curve.png')
+            data_train.pr_curve.savefig(compare_folder / f'{form_label}_{y_col}_{model_names[i]}_pr_curve.png')
+            data_train.roc_curve.savefig(compare_folder / f'{form_label}_{y_col}_{model_names[i]}_roc_curve.png')
         except Exception:
             logger.exception('Cannot save threshold Curve')
         else:

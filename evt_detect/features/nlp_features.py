@@ -127,7 +127,7 @@ def normalize_text(text):
         return text
 
 
-def gen_sents_doc(text):
+def gen_sents_doc(text, delimiter=False):
     """Generate valid sentences for a paragraph, including removing excessive characters
 
     Args:
@@ -136,14 +136,19 @@ def gen_sents_doc(text):
     Returns:
         List of strings: list of valid sentences in string format
     """
-    while True:
-        try:
-            sents = [sent for sent in nlp(normalize_text(text)).sents]
-            break
-        except ValueError:
-            nlp.max_length = len(text)
+    if not delimiter:
+        while True:
+            try:
+                sents = [sent for sent in nlp(normalize_text(text)).sents]
+                break
+            except ValueError:
+                nlp.max_length = len(text)
 
-    return [sent for sent in sents if valid_sent(sent)]
+        return [sent for sent in sents if valid_sent(sent)]
+    else:
+        sents = text.split(delimiter)
+        return [nlp(sent) for sent in sents]
+
 
 def gen_sents(sents_doc):
     return [str(sent) for sent in sents_doc]
@@ -441,8 +446,12 @@ def topics_lsa(X, decompose=TruncatedSVD, scaler=Normalizer, tfidf=True, vect_pa
 
     return pipe.named_steps.decompose, feature_names 
 
-def parag_to_sents(text, tokenizer):
-    sents_doc = gen_sents_doc(text)
+def parag_to_sents(text, tokenizer, raw=True):
+    if raw:
+        sents_doc = gen_sents_doc(text)
+    else:
+        sents_doc = gen_sents_doc(text, delimiter='\n')
+        
     tokens = gen_tokens(sents_doc, tokenizer=tokenizer)
     df = pos_feature(sents_doc)
     df['tokens'] = tokens

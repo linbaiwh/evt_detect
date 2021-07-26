@@ -335,7 +335,12 @@ def add_idx(idx, sents_df):
 
 
 def parag_pred(df, textcol, tokenizer, y_col, model, threshold, output='whole'):
-    sents_dfs = df[textcol].parallel_apply(nlp_feat.parag_to_sents, tokenizer=tokenizer).tolist()
+    if 'sents' in textcol:
+        sents_dfs = df[textcol].parallel_apply(
+            nlp_feat.parag_to_sents, tokenizer=tokenizer, raw=False
+            ).tolist()
+    else:
+        sents_dfs = df[textcol].parallel_apply(nlp_feat.parag_to_sents, tokenizer=tokenizer).tolist()
 
     # try:
     #     X_col = model.feature_names
