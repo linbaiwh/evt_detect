@@ -16,7 +16,7 @@ warnings.filterwarnings("ignore")
 
 
 
-def main(form_label, y_col, model_name, threshold=0.99, output='whole'):
+def main(form_label, y_col, model_name, threshold=0.99, output='whole', inputs='whole'):
 
     logging.config.fileConfig(logger_conf)
     logger = logging.getLogger('model_predict')
@@ -41,35 +41,41 @@ def main(form_label, y_col, model_name, threshold=0.99, output='whole'):
         form_types = PR_types
         tokenizer = nlp_feat.PR_tokenizer
 
-    csv_ins, csv_outs = find_formtypes(form_types, topfolder, tag=tag)
+    if inputs == 'whole':
+        csv_ins, csv_outs = find_formtypes(form_types, topfolder, tag=tag)
 
-    for i in range(len(csv_ins)):
-        if not csv_outs[i].exists():
-            df = read_file_df(csv_ins[i])
-            df.dropna(subset=['filtered_text'], inplace=True)
-            logger.info(f'start predicting {csv_ins[i].name}')
+        for i in range(len(csv_ins)):
+            if not csv_outs[i].exists():
+                df = read_file_df(csv_ins[i])
+                df.dropna(subset=['filtered_text'], inplace=True)
+                logger.info(f'start predicting {csv_ins[i].name}')
 
-            dfs = np.array_split(df, 4)
-            del df
-            result_dfs = []
-            for j in range(4):
-                result_df = parag_pred(dfs[j], textcol='filtered_text', y_col=y_col, tokenizer=tokenizer,
-                    output=output, model=model, threshold=threshold)
-                if result_df is not None:
-                    result_dfs.append(result_df)
-                    logger.info(f'finish predicting {csv_ins[i].name} chunk {j}')
+                dfs = np.array_split(df, 4)
+                del df
+                result_dfs = []
+                for j in range(4):
+                    result_df = parag_pred(dfs[j], textcol='filtered_text', y_col=y_col, tokenizer=tokenizer,
+                        output=output, model=model, threshold=threshold)
+                    if result_df is not None:
+                        result_dfs.append(result_df)
+                        logger.info(f'finish predicting {csv_ins[i].name} chunk {j}')
 
-            if result_dfs:
-                result_df = pd.concat(result_dfs)
-                logger.info(f'finish predicting {csv_ins[i].name}')
-                to_file_df(result_df, csv_outs[i])
-            
-    result_df = merge_csv(csv_outs)
+                if result_dfs:
+                    result_df = pd.concat(result_dfs)
+                    logger.info(f'finish predicting {csv_ins[i].name}')
+                    to_file_df(result_df, csv_outs[i])
+                
+        result_df = merge_csv(csv_outs)
 
-    results_file = result_folder / f'{form_label}_pred.xlsx'
-    if results_file.exists():
-        result_pre = read_file_df(results_file)
-        result_df = result_df.merge(result_pre, how='outer')
+        results_file = result_folder / f'{form_label}_pred.xlsx'
+        if results_file.exists():
+            result_pre = read_file_df(results_file)
+            result_df = result_df.merge(result_pre, how='outer')
+
+    elif inputs == 'sent':
+        csv_in = result_folder / f'{form_label}_sents.xlsx'
+        df = read_file_df(csv_in)
+        
 
     to_file_df(result_df, results_file)
 

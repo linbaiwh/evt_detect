@@ -448,8 +448,8 @@ def parag_to_sents(text, tokenizer):
     df['tokens'] = tokens
     return df.dropna(subset=['tokens']).drop_duplicates()
 
-def add_tokens_pos(df, tokenizer):
-    sents_doc = df['sents'].map(nlp)
+def add_tokens_pos(df, tokenizer, sentcol='sents'):
+    sents_doc = df[sentcol].map(nlp)
     df['tokens'] = sents_doc.map(lambda doc: gen_tokens([doc], tokenizer=tokenizer)[0])
     df_pos = pos_feature(sents_doc).drop('sents', axis=1)
     return df.join(df_pos)

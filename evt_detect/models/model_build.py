@@ -121,44 +121,45 @@ class model_eval():
         return self
 
 
-    def find_best_threshold(self, use_test=False):
-        if use_test:
-            y_true = self.y_test
-            X = self.X_test
-        else:
-            y_true = self.y_train
-            X = self.X_train
+    def find_best_threshold(self, metric='pr_auc'):
+        y_true = self.y_train
+        X = self.X_train
 
         try:
             y_score = self.model.predict_proba(X)[:,1]
         except:
             y_score = self.model.decision_function(X)
+        
+        precisions, recalls, thresholds = precision_recall_curve(y_true, y_score)
+        f1s = [2*p*r/(p+r) for p, r in zip(precisions, recalls)]
+        idx = np.argmax(f1s)
+        self.threshold_f1 = thresholds[idx]
+        self.model_sum['threshold_f1'] = self.threshold_f1
 
-        if self.refit_score == 'pr_auc':
-            precisions, recalls, thresholds = precision_recall_curve(y_true, y_score)
-            f1s = [2*p*r/(p+r) for p, r in zip(precisions, recalls)]
-            idx = np.argmax(f1s)
+        self.pr_curve = self.plot_best_threshold(recalls, precisions, idx, metric='pr_auc')
+        logger.info('PR Curve created')
 
-            self.threshold_curve = self.plot_best_threshold(recalls, precisions, idx)
-            logger.info('PR Curve created')
+        fpr, tpr, thresholds = roc_curve(y_true, y_score)
+        g_means = np.sqrt(tpr * (1-fpr))
+        idx = np.argmax(g_means)
+        self.threshold_gm = thresholds[idx]
+        self.model_sum['threshold_gm'] = self.threshold_gm
 
-        elif self.refit_score == 'roc_auc':
-            fpr, tpr, thresholds = roc_curve(y_true, y_score)
-            g_means = np.sqrt(tpr * (1-fpr))
-            idx = np.argmax(g_means)
+        self.roc_curve = self.plot_best_threshold(fpr, tpr, idx, metric='roc_auc')
+        logger.info('ROC created')
 
-            self.threshold_curve = self.plot_best_threshold(fpr, tpr, idx)
-            logger.info('ROC created')
+        if metric == 'pr_auc':
+            self.threshold = self.threshold_f1
+        elif metric == 'roc_auc':
+            self.threshold = self.threshold_gm
 
-        self.threshold = thresholds[idx]
-        self.model_sum['threshold'] = self.threshold
         logger.info('best threshold found')
 
         return self
 
-    def plot_best_threshold(self, x_values, y_values, best_idx):
+    def plot_best_threshold(self, x_values, y_values, best_idx, metric='pr_auc'):
         fig = plt.figure(figsize=(6, 4))
-        if self.refit_score == 'pr_auc':
+        if metric == 'pr_auc':
             no_skill = len(self.y_train[self.y_train==1]) / len(self.y_train)
             ax = fig.add_subplot()
             ax.plot([0,1], [no_skill,no_skill], linestyle='--', label='No Skill')
@@ -168,7 +169,7 @@ class model_eval():
             ax.set_xlabel('Recall')
             ax.set_ylabel('Precision')
 
-        elif self.refit_score == 'roc_auc':
+        elif metric == 'roc_auc':
             plt.plot([0,1], [0,1], linestyle='--', label='No Skill')
             plt.plot(x_values, y_values, marker='.')
             plt.scatter(x_values[best_idx], y_values[best_idx], marker='o', color='black', label='Best')
