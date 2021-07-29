@@ -7,7 +7,7 @@ from joblib import load
 import multiprocessing
 from multiprocessing import Pool
 from steps_context import topfolder, tag, label_folder, model_folder, result_folder, logger_conf
-from evt_detect.utils.file_io import read_file_df, to_file_df, merge_csv, parallelize_df
+from evt_detect.utils.file_io import read_file_df, to_file_df, merge_csv
 from evt_detect.models.model_build import parag_pred
 from evt_detect.utils.preprocess import find_formtypes
 import evt_detect.features.nlp_features as nlp_feat
@@ -49,10 +49,15 @@ def main(form_label, y_col, model_name, threshold=0.99, output='whole'):
             df.dropna(subset=['filtered_text'], inplace=True)
             logger.info(f'start predicting {csv_ins[i].name}')
 
-            dfs = np.array_split(df, 4)
+            if form_label = 'CR':
+                sub = df.shape[0] // 1200
+            else:
+                sub = df.shape[0] // 600
+            
+            dfs = np.array_split(df, sub)
             del df
             result_dfs = []
-            for j in range(4):
+            for j in range(sub):
                 result_df = parag_pred(dfs[j], textcol='filtered_text', y_col=y_col, tokenizer=tokenizer,
                     output=output, model=model, threshold=threshold)
                 if result_df is not None:
@@ -76,7 +81,8 @@ def main(form_label, y_col, model_name, threshold=0.99, output='whole'):
     logger.info(f'{form_label} {y_col} prediction using {model_name} is saved')
 
 if __name__ == '__main__':
-    main('CR', 'Incident', 'Baseline', threshold=0.6, output='pos_sents')
+    # main('CR', 'Incident', 'Baseline_Robust', threshold=None, output='pos_sents')
     # main('CR', 'Incident', 'Baseline_self_train', threshold=0.98)
     # main('PR', 'Incident', 'Baseline', threshold=None, output='pos_sents')
     # main('PR', 'Related', 'Baseline_Robust', threshold=None, output='pos_sents')
+    main('PR', 'Related', 'Baseline_Robust', threshold=None, output='whole')

@@ -19,6 +19,7 @@ from sklearn.metrics import average_precision_score, roc_auc_score, precision_sc
 
 from evt_detect.models.trfs import trf_length, trf_pos, trf_sentiment
 import evt_detect.features.nlp_features as nlp_feat
+import evt_detect.utils.file_io as file_io
 
 logger = logging.getLogger(__name__)
 pandarallel.initialize()
@@ -112,6 +113,7 @@ class model_eval():
 
         params = self.params_prepare(model, params)
 
+        logger.info('start GridSearchCV')
         gs = GridSearchCV(model, params, n_jobs=-1, scoring=self.scores, cv=3, return_train_score=True, refit=refit_score)
         gs.fit(self.X_train, self.y_train)
 
@@ -127,7 +129,7 @@ class model_eval():
 
     def model_fit(self, model, params):
         params = self.params_prepare(model, params)
-        model.set_params(params)
+        model.set_params(**params)
         model.fit(self.X_train, self.y_train)
         logger.info('model fit successfully')
         self.model = model
@@ -332,23 +334,24 @@ def add_idx(idx, sents_df):
 
 
 def parag_pred(df, textcol, tokenizer, y_col, model, threshold, output='whole'):
-    sents_dfs = df[textcol].parallel_apply(nlp_feat.parag_to_sents, tokenizer=tokenizer).tolist()
-    # if len(sents_dfs) > 0:
-    #     X_col = sents_dfs[0].columns.tolist()
+    logger.info('start generate nlp features')
+    sents = df[textcol].parallel_apply(nlp_feat.parag_to_sents, tokenizer=tokenizer)
+    logger.info('finish generate nlp features')
+
+    logger.info('start concat sents')
+    sents = file_io.fast_df_concat(sents, n_chunks=sents.shape[0]//10)
+    logger.info('finish concat sents')
+
     try:
         X_col = model.feature_names
     except:
         X_col = ['sents', 'tokens', 'token_count', 'VBD_perc', 'VBN_perc',
         'MD_perc', 'VERB_perc', 'NOUN_perc']
-    sents_dfs = Parallel(n_jobs=-1)(delayed(add_idx)(idx, sents_df) for idx, sents_df in zip(df.index, sents_dfs))
-
-    sents = pd.concat(sents_dfs, ignore_index=True)
 
     sents_eval = model_eval(sents, y_col, X_col)
     sents_eval.model = model
     sents_eval.threshold = threshold
-    
-    
+
     X = sents_eval.data[sents_eval.X_col]
     logger.info(f'start predicting {X.shape[0]} sentences')
 
