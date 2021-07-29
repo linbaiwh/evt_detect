@@ -2,7 +2,7 @@ import logging
 import pandas as pd
 import numpy as np
 from functools import partial
-from multiprocessing import Pool
+from multiprocessing.pool import Pool as Pool
 
 logger = logging.getLogger(__name__)
 
@@ -55,10 +55,42 @@ def parallelize_df(df, func, n_chunks=64, **kwargs):
     df_split = np.array_split(df, n_chunks)
     mapfunc = partial(func, **kwargs)
     try:
-        with Pool(n_chunks // 4) as pool:
-            results = pool.imap_unordered(mapfunc,df_split,chunksize=4)
+        with Pool(processes=8) as pool:
+            return list(pool.imap_unordered(mapfunc,df_split,chunksize=4))
     except:
         logger.exception("Uncaught exception for parallelize_df")
         return None
+
+def gen_duo(thelist):
+    if len(thelist) < 2:
+        return thelist[0]
+    length = len(thelist)
+    for j in range(0, length, 2):
+        if j >= len(thelist):
+            return
+        if j == len(thelist) - 1:
+            yield thelist[-1]
+        else:
+            duo = thelist[j : j + 2]
+            yield duo
+
+def concat(duo):
+    if isinstance(duo, list):
+        return pd.concat([duo[0], duo[1]])
     else:
-        return pd.concat(results, ignore_index=True)
+        return duo
+
+def fast_concat(dfs):
+    while len(dfs) > 1:
+        with Pool(processes=8) as pool:
+            dfs = list(pool.imap_unordered(concat, gen_duo(dfs)))
+    return dfs[0]
+
+def df_concat(df_array):
+    return pd.concat(df_array.tolist(), keys=df_array.index, names=['idx']).reset_index(0).reset_index(drop=True)
+
+def fast_df_concat(dfs_all, n_chunks=64):
+    dfs_all = np.array_split(dfs_all, n_chunks)
+    with Pool(processes=8) as pool:
+        dfs = list(pool.imap_unordered(df_concat, dfs_all))
+    return fast_concat(dfs)

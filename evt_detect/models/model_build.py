@@ -19,6 +19,7 @@ from sklearn.metrics import average_precision_score, roc_auc_score, precision_sc
 
 from evt_detect.models.trfs import trf_length, trf_pos, trf_sentiment
 import evt_detect.features.nlp_features as nlp_feat
+import evt_detect.utils.file_io as file_io
 
 logger = logging.getLogger(__name__)
 pandarallel.initialize()
@@ -335,21 +336,18 @@ def add_idx(idx, sents_df):
 
 
 def parag_pred(df, textcol, tokenizer, y_col, model, threshold, output='whole'):
+    logger.info('start generate nlp features')
     if 'sents' in textcol:
-        sents_dfs = df[textcol].parallel_apply(
+        sents = df[textcol].parallel_apply(
             nlp_feat.parag_to_sents, tokenizer=tokenizer, raw=False
-            ).tolist()
+            )
     else:
-        sents_dfs = df[textcol].parallel_apply(nlp_feat.parag_to_sents, tokenizer=tokenizer).tolist()
+        sents = df[textcol].parallel_apply(nlp_feat.parag_to_sents, tokenizer=tokenizer)
+    logger.info('finish generate nlp features')
 
-    # try:
-    #     X_col = model.feature_names
-    # except:
-    #     X_col = ['sents', 'tokens', 'token_count', 'VBD_perc', 'VBN_perc',
-    #     'MD_perc', 'VERB_perc', 'NOUN_perc']
-    sents_dfs = Parallel(n_jobs=-1)(delayed(add_idx)(idx, sents_df) for idx, sents_df in zip(df.index, sents_dfs))
-
-    sents = pd.concat(sents_dfs, ignore_index=True)
+    logger.info('start concat sents')
+    sents = file_io.fast_df_concat(sents, n_chunks=sents.shape[0]//10)
+    logger.info('finish concat sents')
 
     sents = sents_pred(sents, y_col, model, threshold)
 
