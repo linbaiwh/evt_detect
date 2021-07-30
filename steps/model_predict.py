@@ -48,12 +48,17 @@ def main(form_label, y_col, model_name, threshold=0.99, output='whole'):
             df = read_file_df(csv_ins[i])
             df.dropna(subset=['filtered_text'], inplace=True)
             logger.info(f'start predicting {csv_ins[i].name}')
+            nrows = df.shape[0]
 
-            if form_label = 'CR':
-                sub = df.shape[0] // 1200
+            if form_label == 'CR':
+                sub = nrows // 2000 + 1
+
             else:
-                sub = df.shape[0] // 600
+                sub = nrows // 800 + 1
             
+            if sub == 0:
+                continue
+
             dfs = np.array_split(df, sub)
             del df
             result_dfs = []

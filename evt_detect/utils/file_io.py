@@ -51,15 +51,20 @@ def merge_csv(csv_list, outcsv=False, readkwargs={}, mergekwargs={'ignore_index'
     
     return merged_df
 
+def run_apply(df_or_series, func, **kwargs):
+    return df_or_series.apply(func, **kwargs)
+
 def parallelize_df(df, func, n_chunks=64, **kwargs):
+    if n_chunks == 0:
+        return []
     df_split = np.array_split(df, n_chunks)
-    mapfunc = partial(func, **kwargs)
+    func = partial(run_apply, func=func, **kwargs)
     try:
         with Pool(processes=8) as pool:
-            return list(pool.imap_unordered(mapfunc,df_split,chunksize=4))
+            return list(pool.imap_unordered(func,df_split,chunksize=2))
     except:
         logger.exception("Uncaught exception for parallelize_df")
-        return None
+        raise
 
 def gen_duo(thelist):
     if len(thelist) < 2:
@@ -90,7 +95,10 @@ def df_concat(df_array):
     return pd.concat(df_array.tolist(), keys=df_array.index, names=['idx']).reset_index(0).reset_index(drop=True)
 
 def fast_df_concat(dfs_all, n_chunks=64):
-    dfs_all = np.array_split(dfs_all, n_chunks)
+    if n_chunks == 0:
+        return None
+    if not isinstance(dfs_all, list):
+        dfs_all = np.array_split(dfs_all, n_chunks)
     with Pool(processes=8) as pool:
         dfs = list(pool.imap_unordered(df_concat, dfs_all))
     return fast_concat(dfs)

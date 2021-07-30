@@ -335,12 +335,17 @@ def add_idx(idx, sents_df):
 
 def parag_pred(df, textcol, tokenizer, y_col, model, threshold, output='whole'):
     logger.info('start generate nlp features')
-    sents = df[textcol].parallel_apply(nlp_feat.parag_to_sents, tokenizer=tokenizer)
+    # sents = df[textcol].parallel_apply(nlp_feat.parag_to_sents, tokenizer=tokenizer)
+    sents = file_io.parallelize_df(df[textcol], nlp_feat.parag_to_sents, n_chunks=df.shape[0]//2, tokenizer=tokenizer) 
     logger.info('finish generate nlp features')
 
     logger.info('start concat sents')
-    sents = file_io.fast_df_concat(sents, n_chunks=sents.shape[0]//10)
-    logger.info('finish concat sents')
+    # sents = file_io.fast_df_concat(sents, n_chunks=sents.shape[0]//10)
+    sents = file_io.fast_df_concat(sents, n_chunks=len(sents))
+    if sents is None:
+        return pd.DataFrame()
+    else:
+        logger.info('finish concat sents')
 
     try:
         X_col = model.feature_names
