@@ -51,18 +51,26 @@ def main(form_label, y_col, model_name, threshold=0.99, output='whole', inputs='
         results_file = result_folder / f'{form_label}_sents_pred.xlsx'
 
     else:
-        csv_ins, csv_outs = find_formtypes(form_types, topfolder, tag=tag)
+        if 'sent' in textcol:
+            csv_ins, csv_outs = [result_folder / f'{form_label}_pred.xlsx'], [result_folder / f'{form_label}_pred_f.xlsx']
+        else:
+            csv_ins, csv_outs = find_formtypes(form_types, topfolder, tag=tag)
 
         for i in range(len(csv_ins)):
             if not csv_outs[i].exists():
                 df = read_file_df(csv_ins[i])
                 df.dropna(subset=[textcol], inplace=True)
                 logger.info(f'start predicting {csv_ins[i].name}')
+                nrows = df.shape[0]
 
                 if form_label == 'CR':
-                    sub = df.shape[0] // 1200
+                    sub = nrows // 2000 + 1
+
                 else:
-                    sub = df.shape[0] // 600
+                    sub = nrows // 800 + 1
+                
+                if sub == 0:
+                    continue
                 
                 dfs = np.array_split(df, sub)
                 del df
@@ -85,8 +93,6 @@ def main(form_label, y_col, model_name, threshold=0.99, output='whole', inputs='
         if results_file.exists():
             result_pre = read_file_df(results_file)
             result_df = result_df.merge(result_pre, how='outer')
-
-
 
 
     to_file_df(result_df, results_file)

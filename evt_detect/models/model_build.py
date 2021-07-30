@@ -5,7 +5,7 @@ import joblib
 from joblib import Parallel, delayed
 import matplotlib.pyplot as plt
 
-from pandarallel import pandarallel
+# from pandarallel import pandarallel
 
 from sklearn.feature_extraction.text import TfidfTransformer, CountVectorizer
 from sklearn.semi_supervised import SelfTrainingClassifier
@@ -22,7 +22,7 @@ import evt_detect.features.nlp_features as nlp_feat
 import evt_detect.utils.file_io as file_io
 
 logger = logging.getLogger(__name__)
-pandarallel.initialize()
+# pandarallel.initialize()
 
 def model_prep(classifier, vect_scaler=None, lsa=None, scaler=None, fselector=None, oversampler=None, undersampler=None):
     vect_steps = [
@@ -338,16 +338,22 @@ def add_idx(idx, sents_df):
 def parag_pred(df, textcol, tokenizer, y_col, model, threshold, output='whole'):
     logger.info('start generate nlp features')
     if 'sents' in textcol:
+        sents = file_io.parallelize_df(df[textcol], nlp_feat.parag_to_sents, n_chunks=df.shape[0]//2, tokenizer=tokenizer, raw=False)
         sents = df[textcol].parallel_apply(
-            nlp_feat.parag_to_sents, tokenizer=tokenizer, raw=False
+            nlp_feat.parag_to_sents
             )
     else:
-        sents = df[textcol].parallel_apply(nlp_feat.parag_to_sents, tokenizer=tokenizer)
+        sents = file_io.parallelize_df(df[textcol], nlp_feat.parag_to_sents, n_chunks=df.shape[0]//2, tokenizer=tokenizer) 
+
     logger.info('finish generate nlp features')
 
     logger.info('start concat sents')
-    sents = file_io.fast_df_concat(sents, n_chunks=sents.shape[0]//10)
-    logger.info('finish concat sents')
+    # sents = file_io.fast_df_concat(sents, n_chunks=sents.shape[0]//10)
+    sents = file_io.fast_df_concat(sents, n_chunks=len(sents))
+    if sents is None:
+        return pd.DataFrame()
+    else:
+        logger.info('finish concat sents')
 
     sents = sents_pred(sents, y_col, model, threshold)
 
