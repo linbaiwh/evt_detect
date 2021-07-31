@@ -58,7 +58,7 @@ def select_breach_firms(datafolder):
     return set(breached_df['cik'].dropna().unique())
 
 # * find original text files for the specified form types
-def find_formtypes(form_types, topfolder, tag='breach', year='all'):
+def find_formtypes(form_types, topfolder, tag='breach', year='all', infolder='tinfo', outfolder='temp'):
     """Find original files accoring to certain form types.
 
     Args:
@@ -72,8 +72,8 @@ def find_formtypes(form_types, topfolder, tag='breach', year='all'):
     """
     tag_folder = topfolder / tag
 
-    tinfo_folder = tag_folder / 'tinfo'
-    tempfolder = tag_folder / 'temp'
+    tinfo_folder = tag_folder / infolder
+    tempfolder = tag_folder / outfolder
 
     tcsvs = []
     for form_type in form_types:

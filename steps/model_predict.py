@@ -52,7 +52,8 @@ def main(form_label, y_col, model_name, threshold=0.99, output='whole', inputs='
 
     else:
         if 'sent' in textcol:
-            csv_ins, csv_outs = [result_folder / f'{form_label}_pred.xlsx'], [result_folder / f'{form_label}_pred_f.xlsx']
+            csv_ins, csv_outs = find_formtypes(form_types, topfolder, tag=tag, 
+            infolder='temp', outfolder=f'pred_{y_col}')
         else:
             csv_ins, csv_outs = find_formtypes(form_types, topfolder, tag=tag)
 
@@ -104,9 +105,12 @@ if __name__ == '__main__':
     # main('CR', 'Incident', 'Baseline_self_train', threshold=0.98)
     # main('PR', 'Incident', 'Baseline', threshold=None, output='pos_sents')
     # main('PR', 'Related', 'Baseline_Robust', threshold=None, output='pos_sents')
-    main('PR', 'Incident', 'Baseline_Std', threshold=None, inputs='sents')
+    # main('PR', 'Incident', 'Baseline_Std', threshold=None, inputs='sents')
     # main('CR', 'Incident', 'Baseline_Robust', threshold=None, output='pos_sents')
     # main('CR', 'Incident', 'Baseline_self_train', threshold=0.98)
     # main('PR', 'Incident', 'Baseline', threshold=None, output='pos_sents')
     # main('PR', 'Related', 'Baseline_Robust', threshold=None, output='pos_sents')
     # main('PR', 'Related', 'Baseline_Robust', threshold=None, output='whole')
+
+    # main('PR', 'Incident', 'Baseline_Std', threshold=None, textcol='Related_sents')
+    main('PR', 'Immaterial', 'SVC_Std', threshold=None, textcol='Related_sents')

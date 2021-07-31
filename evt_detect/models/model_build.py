@@ -339,9 +339,6 @@ def parag_pred(df, textcol, tokenizer, y_col, model, threshold, output='whole'):
     logger.info('start generate nlp features')
     if 'sents' in textcol:
         sents = file_io.parallelize_df(df[textcol], nlp_feat.parag_to_sents, n_chunks=df.shape[0]//2, tokenizer=tokenizer, raw=False)
-        sents = df[textcol].parallel_apply(
-            nlp_feat.parag_to_sents
-            )
     else:
         sents = file_io.parallelize_df(df[textcol], nlp_feat.parag_to_sents, n_chunks=df.shape[0]//2, tokenizer=tokenizer) 
 
