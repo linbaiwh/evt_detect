@@ -1,5 +1,5 @@
-{"label": "TICKER", "pattern": [{"TEXT": "("}, {"TEXT": {"REGEX": "^(NYSE|NASDAQ|LSE|TASE)$"}}, {"TEXT": ":"}, {"TEXT": {"REGEX": "^([A-Z0-9\\.]+)$"}}, {"TEXT": ")"}]}
-{"label": "TICKER", "pattern": [{"TEXT": "("}, {"TEXT": {"REGEX": "^(NYSE|NASDAQ|LSE|TASE)$"}}, {"TEXT": ":"}, {"TEXT": {"REGEX": "^([A-Z0-9\\.]+)$"}}, {"ORTH": ","}, {"TEXT": {"REGEX": "^(NYSE|NASDAQ|LSE|TASE)$"}}, {"TEXT": ":"}, {"TEXT": {"REGEX": "^([A-Z0-9\\.]+)$"}}, {"TEXT": ")"}]}
+{"label": "TICKER", "pattern": [{"TEXT": "("}, {"LOWER": {"REGEX": "^(nyse|nasdaq|lse|tase)$"}}, {"TEXT": ":"}, {"TEXT": {"REGEX": "^([A-Z0-9\\.]+)$"}}, {"TEXT": ")"}]}
+{"label": "TICKER", "pattern": [{"TEXT": "("}, {"LOWER": {"REGEX": "^(nyse|nasdaq|lse|tase)$"}}, {"TEXT": ":"}, {"TEXT": {"REGEX": "^([A-Z0-9\\.]+)$"}}, {"ORTH": ","}, {"LOWER": {"REGEX": "^(nyse|nasdaq|lse|tase)$"}}, {"TEXT": ":"}, {"TEXT": {"REGEX": "^([A-Z0-9\\.]+)$"}}, {"TEXT": ")"}]}
 {"label": "SEC", "pattern": "SEC"}
 {"label": "SEC", "pattern": [{"LOWER": "the", "OP": "?"}, {"TEXT": {"REGEX": "^(U\\.?S\\.?)$"}, "OP": "?"}, {"TEXT": "Securities"}, {"TEXT": "and"}, {"TEXT": "Exchange"}, {"TEXT": "Commission"}]}
 {"label": "SEC", "pattern": [{"TEXT": "Securities"}, {"TEXT": "Administrator"}]}

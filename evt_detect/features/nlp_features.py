@@ -9,6 +9,7 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.decomposition import TruncatedSVD
 from sklearn.pipeline import Pipeline
 from spacy.language import Language
+from spacy_langdetect import LanguageDetector
 import spacy
 
 import logging
@@ -88,6 +89,20 @@ nlp.add_pipe("EDGAR_sentencizer", before="parser")
 nlp.add_pipe("entity_ruler", before="ner").from_disk(doc_folder / "ent_pattern.jsonl")
 nlp.add_pipe("merge_entities")
 
+@Language.factory("language_detector")
+def create_language_detector(nlp, name):
+    return LanguageDetector(language_detection_function=None)
+
+nlp.add_pipe('language_detector')
+
+def detect_en(doc):
+    try:
+        if doc._.language['language'] == 'en':
+            return True
+    except:
+        return False
+    return False
+
 
 def valid_sent(doc):
     """Decide whether a sentence is valid or not.
@@ -100,7 +115,7 @@ def valid_sent(doc):
     Returns:
         bool: True if the sentence is valid, and False otherwise
     """
-    if len(doc) >=4:
+    if detect_en(doc) and len(doc) >=4:
         words = set([token.lower for token in doc if token.is_alpha & (len(token)>2)])
         if len(words) >= 3:
             return True
@@ -144,10 +159,11 @@ def gen_sents_doc(text, delimiter=False):
             except ValueError:
                 nlp.max_length = len(text)
 
-        return [sent for sent in sents if valid_sent(sent)]
     else:
         sents = text.split(delimiter)
-        return [nlp(sent) for sent in sents]
+        sents = [nlp(sent) for sent in sents]
+
+    return [sent for sent in sents if valid_sent(sent)]
 
 
 def gen_sents(sents_doc):
@@ -224,31 +240,34 @@ def tokenizer_ent(doc, ents=None):
         doc = nlp(doc)
     tokens = []
     for token in doc:
-        if ents is not None and token.ent_iob_ == 'B' and token.ent_type_ in ents:
+        if token.like_url:
+            tokens.append('URL')
+        elif token.like_email:
+            tokens.append('EMAIL')
+        elif match_itemNo(token):
+            tokens.append('ITEMNUM')
+
+        elif ents is not None and token.ent_iob_ == 'B' and token.ent_type_ in ents:
             tokens.append(token.ent_type_)
         elif ORG_ent and token.ent_iob_ == 'B' and token.ent_type_ == 'ORG' and not match_not_ent(token):
             tokens.append('ORG')
         elif token.ent_iob_ == 'B':
             tokens += [s for s in token.text.split() if s.isalpha()]
-        elif token.ent_iob_ == 'O' and token.pos_ != 'PUNCT':
-            if token.like_url:
-                tokens.append('URL')
-            elif token.like_email:
-                tokens.append('EMAIL')
-            elif token.like_num:
+        elif token.ent_iob_ == 'O' and token.pos_ != 'PUNCT' and token.is_alpha and len(token) > 1: 
+            if token.like_num:
                 tokens.append('NUM')
-            elif match_itemNo(token):
-                tokens.append('ITEMNUM')
-            elif token.is_alpha and len(token) > 1 and not token.is_oov:
+            elif token.is_oov:
+                tokens.append('OOV')
+            else:
                 tokens.append(token.text)
 
     return tokens
 
-# match item No. like (1), (a), (iv)
+# match item No. like (1), (a), (iv), (ccc)
 def match_itemNo(token):
     try:
         if token.nbor(-1).text == '(' and token.nbor(1).text == ')':
-            pattern = re.compile(r"^([a-zA-Z]{1}|[ivx]+|\d{1})$")
+            pattern = re.compile(r"^((\w)\2{2,}|[a-zA-Z]{1}|[ivx]+|\d{1})$")
             if pattern.match(token.text):
                 return True
     except IndexError:
@@ -459,6 +478,9 @@ def parag_to_sents(text, tokenizer, raw=True):
 
 def add_tokens_pos(df, tokenizer, sentcol='sents'):
     sents_doc = df[sentcol].map(nlp)
+    is_en = sents_doc.map(detect_en)
+    df = df.loc[is_en]
+    sents_doc = sents_doc.loc[is_en]
     df['tokens'] = sents_doc.map(lambda doc: gen_tokens([doc], tokenizer=tokenizer)[0])
     df_pos = pos_feature(sents_doc).drop('sents', axis=1)
     return df.join(df_pos)
